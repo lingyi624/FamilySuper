@@ -1,0 +1,189 @@
+@page "/work"
+@inject IWorkTaskService TaskSvc
+@using TaskStatus = FamilySuper.Core.Enums.TaskStatus
+
+<div class="page-container">
+    <div class="page-header">
+        <h2>💼 工作日程</h2>
+        <button class="btn btn-primary" @onclick="StartAdd">+ 新建任务</button>
+    </div>
+
+    <div class="board">
+        @foreach (var status in new[] { TaskStatus.Pending, TaskStatus.InProgress, TaskStatus.Completed })
+        {
+            <div class="board-column">
+                <div class="column-header status-@status.ToString().ToLower()">
+                    <span>@GetStatusLabel(status)</span>
+                    <span class="count">@(tasks.Count(t => t.Status == status))</span>
+                </div>
+                <div class="column-body">
+                    @foreach (var t in tasks.Where(x => x.Status == status).OrderBy(x => x.DueDate))
+                    {
+                        <div class="task-card priority-@t.Priority.ToString().ToLower()">
+                            <div class="task-title">@t.Title</div>
+                            @if (!string.IsNullOrEmpty(t.Description))
+                            {
+                                <div class="task-desc">@t.Description</div>
+                            }
+                            <div class="task-meta">
+                                @if (t.DueDate.HasValue)
+                                {
+                                    <span class="due-date">截止: @t.DueDate.Value.ToString("MM-dd")</span>
+                                }
+                                <span class="priority-tag">@t.Priority</span>
+                            </div>
+                            <div class="task-actions">
+                                @if (status != TaskStatus.Completed)
+                                {
+                                    <button class="btn btn-sm" @onclick="() => Advance(t)">→ 推进</button>
+                                }
+                                <button class="btn btn-sm" @onclick="() => StartEdit(t)">编辑</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => Delete(t.Id)">删除</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (showForm)
+    {
+        <div class="form-card">
+            <h3>@(editing.Id > 0 ? "编辑任务" : "新建任务")</h3>
+            <EditForm Model="editing" OnValidSubmit="Save">
+                <div class="form-row"><label>标题 *</label><InputText @bind-Value="editing.Title" /></div>
+                <div class="form-row"><label>描述</label><InputTextArea @bind-Value="editing.Description" /></div>
+                <div class="form-row">
+                    <label>优先级</label>
+                    <InputSelect @bind-Value="editing.Priority">
+                        @foreach (var p in Enum.GetValues<TaskPriority>())
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="form-row">
+                    <label>状态</label>
+                    <InputSelect @bind-Value="editing.Status">
+                        @foreach (var s in Enum.GetValues<TaskStatus>())
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="form-row"><label>截止日期</label><InputDate @bind-Value="editing.DueDate" /></div>
+                <div class="form-row"><label>类别</label><InputText @bind-Value="editing.Category" /></div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn" @onclick="Cancel">取消</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+@code {
+    private List<WorkTask> tasks = new();
+    private WorkTask editing = new();
+    private bool showForm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        tasks = await TaskSvc.GetTasksAsync();
+    }
+
+    private void StartAdd()
+    {
+        editing = new WorkTask { Priority = TaskPriority.Medium, Status = TaskStatus.Pending, CreatedAt = DateTime.UtcNow };
+        showForm = true;
+    }
+
+    private void StartEdit(WorkTask t)
+    {
+        editing = new WorkTask
+        {
+            Id = t.Id, Title = t.Title, Description = t.Description,
+            Priority = t.Priority, Status = t.Status, DueDate = t.DueDate,
+            Category = t.Category, MemberId = t.MemberId, CreatedAt = t.CreatedAt
+        };
+        showForm = true;
+    }
+
+    private async Task Save()
+    {
+        if (editing.Id > 0) await TaskSvc.UpdateAsync(editing);
+        else await TaskSvc.AddAsync(editing);
+        showForm = false;
+        await LoadTasks();
+    }
+
+    private void Cancel() => showForm = false;
+
+    private async Task Advance(WorkTask t)
+    {
+        var next = t.Status switch
+        {
+            TaskStatus.Pending => TaskStatus.InProgress,
+            TaskStatus.InProgress => TaskStatus.Completed,
+            _ => t.Status
+        };
+        await TaskSvc.UpdateStatusAsync(t.Id, next);
+        await LoadTasks();
+    }
+
+    private async Task Delete(long id)
+    {
+        await TaskSvc.DeleteAsync(id);
+        await LoadTasks();
+    }
+
+    private static string GetStatusLabel(TaskStatus s) => s switch
+    {
+        TaskStatus.Pending => "待办",
+        TaskStatus.InProgress => "进行中",
+        TaskStatus.Completed => "已完成",
+        _ => s.ToString()
+    };
+}
+
+<style>
+    .page-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .board-column { background: #f5f7fa; border-radius: 12px; overflow: hidden; }
+    .column-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; font-weight: 700; font-size: 14px; color: white; }
+    .column-header .count { background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+    .status-pending { background: #757575; }
+    .status-inprogress { background: #1976d2; }
+    .status-completed { background: #2e7d32; }
+    .column-body { padding: 8px; min-height: 200px; }
+    .task-card { background: white; border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 4px solid #ccc; }
+    .task-card.priority-low { border-left-color: #4caf50; }
+    .task-card.priority-medium { border-left-color: #ff9800; }
+    .task-card.priority-high { border-left-color: #f44336; }
+    .task-card.priority-urgent { border-left-color: #9c27b0; }
+    .task-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #333; }
+    .task-desc { font-size: 12px; color: #666; margin-bottom: 8px; }
+    .task-meta { display: flex; gap: 8px; font-size: 11px; color: #888; margin-bottom: 8px; }
+    .priority-tag { background: #f0f4f8; padding: 1px 6px; border-radius: 8px; }
+    .task-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .btn { padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; color: #555; }
+    .btn:hover { background: #f0f4f8; }
+    .btn-primary { background: #1976d2; color: white; border-color: #1976d2; }
+    .btn-danger { color: #d32f2f; border-color: #ffcdd2; }
+    .btn-sm { padding: 3px 8px; font-size: 11px; }
+    .form-card { background: white; border-radius: 12px; padding: 20px; margin-top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 2px solid #e3f2fd; }
+    .form-card h3 { margin: 0 0 16px; font-size: 17px; }
+    .form-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .form-row label { width: 80px; font-size: 14px; color: #555; }
+    .form-row input, .form-row select, .form-row textarea { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    .form-row textarea { min-height: 60px; resize: vertical; }
+    .form-actions { display: flex; gap: 8px; margin-top: 16px; }
+</style>

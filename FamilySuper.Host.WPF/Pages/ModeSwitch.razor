@@ -1,0 +1,217 @@
+@page "/mode-switch"
+@inject Services.ModeStateContainer ModeState
+
+<div class="mode-switch-page">
+    <div class="switch-card">
+        <h2>模式切换</h2>
+        <p class="hint">切换模式需要管理员密码验证。两种模式拥有独立的数据视图。</p>
+
+        <div class="current-mode">
+            <span>当前模式:</span>
+            <strong class="mode-@ModeState.CurrentMode.ToString().ToLower()">
+                @(ModeState.CurrentMode == AppMode.Adult ? "大人模式" : "小孩模式")
+            </strong>
+        </div>
+
+        <div class="mode-options">
+            <button class="mode-btn @(ModeState.CurrentMode == AppMode.Adult ? "active" : "")"
+                    @onclick="() => RequestSwitch(AppMode.Adult)">
+                <span class="btn-icon">👨</span>
+                <span class="btn-title">大人模式</span>
+                <span class="btn-desc">完整功能 · 财务 · 工作 · 医疗</span>
+            </button>
+
+            <button class="mode-btn @(ModeState.CurrentMode == AppMode.Child ? "active" : "")"
+                    @onclick="() => RequestSwitch(AppMode.Child)">
+                <span class="btn-icon">🧒</span>
+                <span class="btn-title">小孩模式</span>
+                <span class="btn-desc">内容过滤 · 教育优先 · 屏蔽财务</span>
+            </button>
+        </div>
+
+        @if (showPasswordDialog)
+        {
+            <div class="dialog-overlay" @onclick="CancelSwitch">
+                <div class="dialog" @onclick:stopPropagation="true">
+                    <h3>验证管理员密码</h3>
+                    <p>即将切换到: @(pendingMode == AppMode.Adult ? "大人模式" : "小孩模式")</p>
+                    <input type="password" @bind="passwordInput" placeholder="请输入管理员密码"
+                           @onkeydown="HandleKeyDown" autofocus />
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="error">@errorMessage</div>
+                    }
+                    <div class="dialog-actions">
+                        <button class="btn-cancel" @onclick="CancelSwitch">取消</button>
+                        <button class="btn-confirm" @onclick="ConfirmSwitch">确认切换</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="success">@successMessage</div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool showPasswordDialog;
+    private AppMode pendingMode;
+    private string passwordInput = string.Empty;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    private void RequestSwitch(AppMode target)
+    {
+        if (ModeState.CurrentMode == target)
+        {
+            successMessage = "已是该模式";
+            return;
+        }
+
+        pendingMode = target;
+        passwordInput = string.Empty;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        showPasswordDialog = true;
+    }
+
+    private async Task ConfirmSwitch()
+    {
+        if (string.IsNullOrWhiteSpace(passwordInput))
+        {
+            errorMessage = "请输入密码";
+            return;
+        }
+
+        var success = await ModeState.SwitchModeAsync(pendingMode, passwordInput);
+        if (success)
+        {
+            showPasswordDialog = false;
+            successMessage = $"已切换到 {(pendingMode == AppMode.Adult ? "大人" : "小孩")} 模式";
+        }
+        else
+        {
+            errorMessage = "密码验证失败,请重试";
+        }
+    }
+
+    private void CancelSwitch()
+    {
+        showPasswordDialog = false;
+        passwordInput = string.Empty;
+        errorMessage = string.Empty;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ConfirmSwitch();
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelSwitch();
+        }
+    }
+}
+
+<style>
+    .mode-switch-page { max-width: 720px; margin: 0 auto; }
+    .switch-card {
+        background: white;
+        padding: 32px;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .switch-card h2 { margin: 0 0 8px; color: #333; }
+    .hint { color: #666; font-size: 14px; margin: 0 0 24px; }
+    .current-mode {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background: #f5f5f7;
+        border-radius: 8px;
+        margin-bottom: 24px;
+        font-size: 14px;
+    }
+    .mode-adult { color: #2e7d32; }
+    .mode-child { color: #e65100; }
+    .mode-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    .mode-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 24px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .mode-btn:hover { border-color: #1976d2; background: #f6faff; }
+    .mode-btn.active { border-color: #1976d2; background: #e3f2fd; }
+    .btn-icon { font-size: 36px; }
+    .btn-title { font-size: 16px; font-weight: 600; color: #333; }
+    .btn-desc { font-size: 12px; color: #666; text-align: center; }
+    .dialog-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .dialog {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        width: 360px;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+    }
+    .dialog h3 { margin: 0 0 8px; color: #333; }
+    .dialog p { margin: 0 0 16px; color: #666; font-size: 14px; }
+    .dialog input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+    .dialog input:focus { outline: none; border-color: #1976d2; }
+    .error { color: #c62828; font-size: 13px; margin-top: 8px; }
+    .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 16px;
+    }
+    .btn-cancel, .btn-confirm {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .btn-cancel { background: #f0f0f0; color: #555; }
+    .btn-confirm { background: #1976d2; color: white; }
+    .btn-confirm:hover { background: #1565c0; }
+    .success {
+        margin-top: 16px;
+        padding: 10px 14px;
+        background: #e8f5e9;
+        color: #2e7d32;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+</style>

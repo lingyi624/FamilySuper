@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\FamilySuper.Core\FamilySuper.Core.csproj" />
+    <ProjectReference Include="..\FamilySuper.Data\FamilySuper.Data.csproj" />
+    <ProjectReference Include="..\FamilySuper.Agent\FamilySuper.Agent.csproj" />
+    <ProjectReference Include="..\FamilySuper.Infrastructure\FamilySuper.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

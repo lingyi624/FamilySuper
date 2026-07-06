@@ -1,0 +1,277 @@
+@page "/chat"
+@inject IAgentService Agent
+@inject IConversationService ConversationSvc
+@inject Services.ModeStateContainer ModeState
+
+<div class="chat-page">
+    <div class="chat-sidebar">
+        <div class="sidebar-header">
+            <h3>💬 对话历史</h3>
+            <button class="btn-new" @onclick="NewSession">+ 新建</button>
+        </div>
+        <div class="session-list">
+            @foreach (var s in sessions)
+            {
+                <div class="session-item @(currentSessionId == s.Id ? "active" : "")" @onclick="() => SelectSession(s.Id)">
+                    <div class="session-title">@s.Title</div>
+                    <div class="session-meta">
+                        <span>@s.MessageCount 条</span>
+                        <span>@s.LastMessageAt.ToString("MM-dd HH:mm")</span>
+                    </div>
+                    <button class="btn-del" @onclick="() => DeleteSession(s.Id)" @onclick:stopPropagation="true">✕</button>
+                </div>
+            }
+            @if (sessions.Count == 0)
+            {
+                <div class="empty-sessions">暂无历史会话</div>
+            }
+        </div>
+    </div>
+
+    <div class="chat-main">
+        <div class="chat-header">
+            <h2>智能对话</h2>
+            <div class="status @(Agent.IsAvailable ? "ok" : "warn")">
+                @(Agent.IsAvailable ? "DeepSeek V4 Pro 已连接" : "Mock 模式")
+            </div>
+        </div>
+
+        <div class="chat-window">
+            @if (messages.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">💬</div>
+                    <p>开始与家庭管家对话吧</p>
+                    <div class="suggestions">
+                        @foreach (var s in suggestions)
+                        {
+                            <button class="suggestion-btn" @onclick="() => UseSuggestion(s)">@s</button>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="messages">
+                    @foreach (var msg in messages)
+                    {
+                        <div class="message @msg.Role">
+                            <div class="bubble">
+                                @if (!string.IsNullOrEmpty(msg.ImagePreview))
+                                {
+                                    <img src="@msg.ImagePreview" class="msg-image" alt="附件" />
+                                }
+                                @msg.Content
+                            </div>
+                        </div>
+                    }
+                    @if (loading)
+                    {
+                        <div class="message assistant">
+                            <div class="bubble loading">思考中...</div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="input-area">
+            @if (!string.IsNullOrEmpty(attachedImagePreview))
+            {
+                <div class="image-attach">
+                    <img src="@attachedImagePreview" class="attach-preview" alt="预览" />
+                    <button class="attach-remove" @onclick="ClearAttachment">✕</button>
+                </div>
+            }
+            <InputFile OnChange="OnImageSelected" accept="image/*" class="file-input" disabled="@loading" />
+            <textarea @bind="userInput" @bind:event="oninput"
+                      placeholder="输入消息或上传图片... (Enter 发送, Shift+Enter 换行)"
+                      @onkeydown="HandleKeyDown" disabled="@loading"></textarea>
+            <button class="send-btn" @onclick="Send" disabled="@loading || (string.IsNullOrWhiteSpace(userInput) && attachedImageBytes is null)">
+                发送
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string userInput = string.Empty;
+    private bool loading;
+    private List<ChatMessage> messages = new();
+    private List<ConversationSession> sessions = new();
+    private long? currentSessionId;
+    private byte[]? attachedImageBytes;
+    private string? attachedImagePreview;
+    private string? attachedImageMime;
+    private readonly List<string> suggestions = new()
+    {
+        "今天天气怎么样?",
+        "帮我制定一周家庭预算",
+        "孩子学习计划建议"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSessions();
+    }
+
+    private async Task LoadSessions()
+    {
+        sessions = await ConversationSvc.GetSessionsAsync();
+        if (currentSessionId is null && sessions.Count > 0)
+        {
+            await SelectSession(sessions[0].Id);
+        }
+    }
+
+    private async Task NewSession()
+    {
+        var session = await ConversationSvc.CreateSessionAsync();
+        sessions.Insert(0, session);
+        currentSessionId = session.Id;
+        messages.Clear();
+    }
+
+    private async Task SelectSession(long id)
+    {
+        currentSessionId = id;
+        var dbMessages = await ConversationSvc.GetMessagesAsync(id);
+        messages = dbMessages.Select(m => new ChatMessage(
+            m.Role == MessageRole.User ? "user" : "assistant",
+            m.Content)).ToList();
+    }
+
+    private async Task DeleteSession(long id)
+    {
+        await ConversationSvc.DeleteSessionAsync(id);
+        if (currentSessionId == id)
+        {
+            currentSessionId = null;
+            messages.Clear();
+        }
+        await LoadSessions();
+    }
+
+    private async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        if (e.File is null || loading) return;
+        if (e.File.Size > 10 * 1024 * 1024)
+        {
+            return;
+        }
+        using var stream = e.File.OpenReadStream(10 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        attachedImageBytes = ms.ToArray();
+        attachedImageMime = e.File.ContentType;
+        attachedImagePreview = $"data:{e.File.ContentType};base64,{Convert.ToBase64String(attachedImageBytes)}";
+    }
+
+    private void ClearAttachment()
+    {
+        attachedImageBytes = null;
+        attachedImagePreview = null;
+        attachedImageMime = null;
+    }
+
+    private async Task Send()
+    {
+        var text = userInput.Trim();
+        var hasImage = attachedImageBytes is not null && attachedImageBytes.Length > 0;
+        if ((string.IsNullOrEmpty(text) && !hasImage) || loading) return;
+
+        if (currentSessionId is null)
+        {
+            var session = await ConversationSvc.CreateSessionAsync();
+            sessions.Insert(0, session);
+            currentSessionId = session.Id;
+        }
+
+        messages.Add(new ChatMessage("user", text, attachedImagePreview));
+        var imageBytes = attachedImageBytes;
+        var imageMime = attachedImageMime;
+        userInput = string.Empty;
+        ClearAttachment();
+        loading = true;
+
+        try
+        {
+            var persistedText = hasImage && string.IsNullOrEmpty(text) ? "[图片消息]" : text;
+            await ConversationSvc.AddMessageAsync(currentSessionId.Value, MessageRole.User, persistedText);
+
+            var history = messages.Take(Math.Max(0, messages.Count - 1)).ToList();
+            var reply = hasImage
+                ? await Agent.ChatWithImageAsync(text, imageBytes!, imageMime ?? "image/png", ModeState.CurrentMode, history)
+                : await Agent.ChatAsync(text, ModeState.CurrentMode, history);
+            messages.Add(new ChatMessage("assistant", reply));
+
+            await ConversationSvc.AddMessageAsync(currentSessionId.Value, MessageRole.Assistant, reply);
+            await LoadSessions();
+        }
+        catch (Exception ex)
+        {
+            messages.Add(new ChatMessage("assistant", $"错误: {ex.Message}"));
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void UseSuggestion(string s) => userInput = s;
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey) await Send();
+    }
+}
+
+<style>
+    .chat-page { display: flex; height: calc(100vh - 104px); max-width: 1200px; margin: 0 auto; gap: 16px; }
+    .chat-sidebar { width: 260px; background: white; border-radius: 12px; padding: 16px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .sidebar-header h3 { margin: 0; font-size: 15px; color: #333; }
+    .btn-new { padding: 4px 10px; background: #1976d2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .btn-new:hover { background: #1565c0; }
+    .session-list { display: flex; flex-direction: column; gap: 6px; }
+    .session-item { padding: 10px 12px; background: #f5f7fa; border-radius: 8px; cursor: pointer; position: relative; transition: all 0.15s; }
+    .session-item:hover { background: #e3f2fd; }
+    .session-item.active { background: #e3f2fd; border-left: 3px solid #1976d2; }
+    .session-title { font-size: 13px; color: #333; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 20px; }
+    .session-meta { display: flex; gap: 8px; font-size: 11px; color: #999; margin-top: 4px; }
+    .btn-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #ccc; cursor: pointer; font-size: 12px; padding: 2px 4px; }
+    .btn-del:hover { color: #d32f2f; }
+    .empty-sessions { text-align: center; color: #999; padding: 20px; font-size: 13px; }
+    .chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .chat-header h2 { margin: 0; color: #333; font-size: 20px; }
+    .status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .status.ok { background: #e8f5e9; color: #2e7d32; }
+    .status.warn { background: #fff3e0; color: #e65100; }
+    .chat-window { flex: 1; background: white; border-radius: 12px; padding: 20px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #999; }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { margin: 0 0 20px; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .suggestion-btn { padding: 8px 14px; background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 16px; cursor: pointer; font-size: 13px; color: #555; transition: all 0.15s ease; }
+    .suggestion-btn:hover { background: #e3f2fd; border-color: #1976d2; color: #1976d2; }
+    .messages { display: flex; flex-direction: column; gap: 12px; }
+    .message { display: flex; }
+    .message.user { justify-content: flex-end; }
+    .message.assistant { justify-content: flex-start; }
+    .bubble { max-width: 70%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .message.user .bubble { background: #1976d2; color: white; border-bottom-right-radius: 4px; }
+    .message.assistant .bubble { background: #f0f4f8; color: #333; border-bottom-left-radius: 4px; }
+    .bubble.loading { color: #999; font-style: italic; }
+    .input-area { display: flex; gap: 8px; margin-top: 12px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); align-items: flex-end; flex-wrap: wrap; }
+    .file-input { font-size: 12px; align-self: center; }
+    .image-attach { position: relative; display: inline-block; }
+    .attach-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
+    .attach-remove { position: absolute; top: -6px; right: -6px; background: #f44336; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .msg-image { max-width: 220px; max-height: 220px; border-radius: 8px; margin-bottom: 6px; display: block; }
+    textarea { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 14px; font-family: inherit; resize: none; height: 60px; outline: none; }
+    textarea:focus { border-color: #1976d2; }
+    .send-btn { padding: 0 24px; background: #1976d2; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .send-btn:disabled { background: #bbb; cursor: not-allowed; }
+    .send-btn:not(:disabled):hover { background: #1565c0; }
+</style>

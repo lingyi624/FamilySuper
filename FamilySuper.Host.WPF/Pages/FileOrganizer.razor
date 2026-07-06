@@ -1,0 +1,206 @@
+@page "/file-organizer"
+@inject IAgentService Agent
+@inject Services.ModeStateContainer ModeState
+<div class="page-container">
+    <div class="page-header">
+        <h2>📁 文件分类整理</h2>
+        <p class="subtitle">上传文件并由AI自动分类和整理</p>
+    </div>
+
+    <div class="section">
+        <div class="upload-area">
+            <InputFile OnChange="FileSelected" multiple class="file-input" />
+            <div class="upload-content">
+                <div class="upload-icon">📎</div>
+                <p>点击选择文件上传</p>
+                <p class="hint">支持 PDF、Word、Excel、图片等格式</p>
+            </div>
+        </div>
+
+        @if (selectedFiles.Any())
+        {
+            <div class="files-list">
+                <h4>已选择文件:</h4>
+                @foreach (var file in selectedFiles)
+                {
+                    <div class="file-item">
+                        <span class="file-icon">@GetFileIcon(file.Name)</span>
+                        <span class="file-name">@file.Name</span>
+                        <span class="file-size">@FormatSize(file.Size)</span>
+                        <button class="btn btn-sm btn-danger" @onclick="() => RemoveFile(file)">×</button>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="form-actions">
+            <button class="btn btn-primary" @onclick="Organize" disabled="@loading || !selectedFiles.Any()">
+                @(loading ? "整理中..." : "开始整理")
+            </button>
+            <button class="btn" @onclick="Clear" disabled="@loading">清空列表</button>
+        </div>
+    </div>
+
+    @if (showResults)
+    {
+        <div class="section">
+            <h3>📋 分类结果</h3>
+            @foreach (var group in classificationGroups)
+            {
+                <div class="group-card">
+                    <div class="group-header">
+                        <span class="group-icon">@group.Icon</span>
+                        <span class="group-name">@group.Name</span>
+                        <span class="group-count">(@group.Files.Count)</span>
+                    </div>
+                    <div class="group-files">
+                        @foreach (var f in group.Files)
+                        {
+                            <div class="file-tag">@f</div>
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(group.Summary))
+                    {
+                        <div class="group-summary">@group.Summary</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<IBrowserFile> selectedFiles = new();
+    private List<ClassificationGroup> classificationGroups = new();
+    private bool loading;
+    private bool showResults;
+
+    private void FileSelected(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles()) selectedFiles.Add(file);
+    }
+
+    private void RemoveFile(IBrowserFile file) => selectedFiles.Remove(file);
+    private void Clear() => selectedFiles.Clear();
+
+    private async Task Organize()
+    {
+        if (!selectedFiles.Any()) return;
+        loading = true;
+        showResults = false;
+
+        try
+        {
+            var fileNames = string.Join("\n", selectedFiles.Select(f => f.Name));
+            var systemPrompt = """
+你是一位专业的文件分类整理助手。请根据文件名判断文件类型并进行分类整理。
+
+分类规则：
+1. 文档类：PDF、Word、Excel、PPT、文本文件等
+2. 图片类：JPG、PNG、GIF、BMP等图片格式
+3. 视频类：MP4、AVI、MKV等视频格式
+4. 音频类：MP3、WAV等音频格式
+5. 压缩包：ZIP、RAR等压缩文件
+6. 其他：无法分类的文件
+
+请输出JSON格式结果：
+{
+    "groups": [
+        {"name": "分类名称", "icon": "图标emoji", "files": ["文件名列表"], "summary": "简要描述"}
+    ]
+}
+""";
+            var reply = await Agent.ChatAsync($"文件列表：\n{fileNames}", ModeState.CurrentMode, [], systemPrompt);
+            
+            try
+            {
+                var result = System.Text.Json.JsonSerializer.Deserialize<ClassificationResult>(reply);
+                classificationGroups = result?.Groups ?? [];
+            }
+            catch
+            {
+                classificationGroups = new List<ClassificationGroup>
+                {
+                    new ClassificationGroup { Name = "整理结果", Icon = "📋", Files = selectedFiles.Select(f => f.Name).ToList(), Summary = reply }
+                };
+            }
+            showResults = true;
+        }
+        catch (Exception ex)
+        {
+            classificationGroups = new List<ClassificationGroup>
+            {
+                new ClassificationGroup { Name = "错误", Icon = "❌", Files = [], Summary = $"整理失败: {ex.Message}" }
+            };
+            showResults = true;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static string GetFileIcon(string fileName)
+    {
+        var ext = Path.GetExtension(fileName).ToLower();
+        return ext switch
+        {
+            ".pdf" => "📕", ".doc" or ".docx" => "📘", ".xls" or ".xlsx" => "📗",
+            ".ppt" or ".pptx" => "📙", ".txt" => "📄", ".jpg" or ".jpeg" or ".png" or ".gif" => "🖼️",
+            ".mp4" or ".avi" or ".mkv" => "🎬", ".mp3" or ".wav" => "🎵",
+            ".zip" or ".rar" or ".7z" => "📦", _ => "📄"
+        };
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024):F1} MB";
+    }
+
+    private class ClassificationResult { public List<ClassificationGroup> Groups { get; set; } = []; }
+    private class ClassificationGroup
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Icon { get; set; } = "📁";
+        public List<string> Files { get; set; } = [];
+        public string? Summary { get; set; }
+    }
+}
+
+<style>
+    .page-container { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .page-header { margin-bottom: 16px; }
+    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
+    .subtitle { margin: 4px 0 0; font-size: 14px; color: #999; }
+    .section { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .upload-area { border: 2px dashed #ddd; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+    .upload-area:hover { border-color: #1976d2; }
+    .upload-area.dragging { border-color: #1976d2; background: #f0f7ff; }
+    .file-input { display: none; }
+    .upload-content .upload-icon { font-size: 48px; margin-bottom: 12px; }
+    .upload-content p { margin: 4px 0; color: #555; }
+    .hint { color: #999; font-size: 13px; }
+    .files-list { margin-top: 20px; }
+    .files-list h4 { margin: 0 0 12px; font-size: 14px; color: #555; }
+    .file-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8f9fa; border-radius: 8px; margin-bottom: 6px; }
+    .file-icon { font-size: 18px; }
+    .file-name { flex: 1; font-size: 14px; color: #333; }
+    .file-size { font-size: 12px; color: #999; }
+    .form-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 14px; color: #555; }
+    .btn:hover:not(:disabled) { background: #f0f4f8; }
+    .btn-primary { background: #1976d2; color: white; border-color: #1976d2; }
+    .btn-danger { color: #d32f2f; border-color: #ffcdd2; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .group-card { border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .group-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .group-icon { font-size: 20px; }
+    .group-name { font-weight: 600; color: #333; }
+    .group-count { font-size: 12px; color: #999; }
+    .group-files { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .file-tag { padding: 4px 10px; background: #e3f2fd; color: #1976d2; border-radius: 12px; font-size: 12px; }
+    .group-summary { font-size: 13px; color: #666; line-height: 1.5; }
+</style>

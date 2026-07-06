@@ -1,0 +1,175 @@
+@page "/doc-assistant"
+@inject IAgentService Agent
+@inject Services.ModeStateContainer ModeState
+@inject IJSRuntime JSRuntime
+
+<div class="page-container">
+    <div class="page-header">
+        <h2>📝 文档助手</h2>
+    </div>
+
+    <div class="section">
+        <div class="tool-select">
+            <label>选择操作:</label>
+            <select @bind="selectedAction">
+                <option value="summarize">📋 智能摘要</option>
+                <option value="translate">🌐 翻译</option>
+                <option value="polish">✨ 润色</option>
+                <option value="expand">📖 扩写</option>
+                <option value="rewrite">🔄 改写</option>
+                <option value="extract">📌 提取要点</option>
+            </select>
+        </div>
+
+        <div class="input-section">
+            <label>输入文档内容:</label>
+            <textarea @bind="inputText" rows="12" placeholder="粘贴或输入需要处理的文本内容..."></textarea>
+        </div>
+
+        <div class="output-section">
+            <label>处理结果:</label>
+            <div class="result-area">
+                @if (loading)
+                {
+                    <div class="loading-indicator">处理中...</div>
+                }
+                else if (!string.IsNullOrEmpty(outputText))
+                {
+                    @outputText
+                }
+                else
+                {
+                    <div class="empty-result">处理结果将显示在这里</div>
+                }
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" @onclick="Process" disabled="@loading || string.IsNullOrWhiteSpace(inputText)">
+                @(loading ? "处理中..." : "开始处理")
+            </button>
+            <button class="btn" @onclick="Clear">清空</button>
+            <button class="btn" @onclick="CopyResult" disabled="@string.IsNullOrEmpty(outputText)">复制结果</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string inputText = string.Empty;
+    private string outputText = string.Empty;
+    private string selectedAction = "summarize";
+    private bool loading;
+
+    private async Task Process()
+    {
+        var text = inputText.Trim();
+        if (string.IsNullOrEmpty(text) || loading) return;
+
+        loading = true;
+        outputText = string.Empty;
+
+        try
+        {
+            var systemPrompt = GetSystemPrompt(selectedAction);
+            var reply = await Agent.ChatAsync(text, ModeState.CurrentMode, [], systemPrompt);
+            outputText = reply;
+        }
+        catch (Exception ex)
+        {
+            outputText = $"处理失败: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Clear()
+    {
+        inputText = string.Empty;
+        outputText = string.Empty;
+    }
+
+    private async Task CopyResult()
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", outputText);
+    }
+
+    private static string GetSystemPrompt(string action) => action switch
+    {
+        "summarize" => """
+你是一位专业的文档摘要助手。请对用户提供的文本进行简明扼要的摘要，保留核心信息和关键点。
+要求：
+1. 提取主要内容和结论
+2. 使用清晰的结构（分点或段落）
+3. 长度控制在原文的1/3以内
+4. 保持专业术语的准确性
+""",
+        "translate" => """
+你是一位专业的翻译助手。请将用户提供的文本翻译成中文（如已是中文则翻译为英文）。
+要求：
+1. 准确传达原文含义
+2. 保持专业术语的正确性
+3. 语句通顺自然
+4. 保留原文的格式和结构
+""",
+        "polish" => """
+你是一位专业的文字润色助手。请对用户提供的文本进行润色优化。
+要求：
+1. 提高语言表达的专业性和流畅性
+2. 修正语法和用词问题
+3. 保持原文的核心意思不变
+4. 使文本更具可读性和说服力
+""",
+        "expand" => """
+你是一位专业的内容扩写助手。请对用户提供的文本进行扩写和丰富。
+要求：
+1. 在保持核心观点不变的前提下增加内容
+2. 提供更多细节、例子和解释
+3. 使内容更加充实和有深度
+4. 扩展到原文的2-3倍长度
+""",
+        "rewrite" => """
+你是一位专业的文字改写助手。请对用户提供的文本进行改写。
+要求：
+1. 保持原文的核心意思不变
+2. 使用不同的表达方式和结构
+3. 提高文本的可读性和吸引力
+4. 避免与原文过于相似
+""",
+        "extract" => """
+你是一位专业的要点提取助手。请从用户提供的文本中提取关键要点。
+要求：
+1. 列出3-5个核心要点
+2. 每个要点简明扼要（不超过20字）
+3. 按重要性排序
+4. 使用清晰的编号或符号列表
+""",
+        _ => """
+你是一位专业的文档处理助手。请根据用户的需求对文本进行处理。
+要求：准确理解用户意图，提供高质量的处理结果。
+"""
+    };
+}
+
+<style>
+    .page-container { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .page-header { margin-bottom: 16px; }
+    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
+    .section { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .tool-select { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .tool-select label { font-size: 14px; color: #555; }
+    .tool-select select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; min-width: 180px; }
+    .input-section, .output-section { margin-bottom: 16px; }
+    .input-section label, .output-section label { display: block; font-size: 14px; color: #555; margin-bottom: 8px; }
+    .input-section textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 120px; outline: none; box-sizing: border-box; }
+    .input-section textarea:focus { border-color: #1976d2; }
+    .result-area { min-height: 180px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; background: #fafafa; }
+    .loading-indicator { color: #999; font-style: italic; text-align: center; padding: 40px; }
+    .empty-result { color: #bbb; text-align: center; padding: 40px; }
+    .form-actions { display: flex; gap: 8px; }
+    .btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 14px; color: #555; }
+    .btn:hover:not(:disabled) { background: #f0f4f8; }
+    .btn-primary { background: #1976d2; color: white; border-color: #1976d2; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>

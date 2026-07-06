@@ -1,0 +1,306 @@
+@page "/family"
+@inject IRepository<FamilyMember> MemberRepo
+@inject ICertificateService CertService
+@inject IOcrService Ocr
+@inject Services.ModeStateContainer ModeState
+@implements IDisposable
+
+<div class="page-container">
+    <div class="page-header">
+        <h2>👨‍👩‍👧 家庭信息管理</h2>
+        <button class="btn btn-primary" @onclick="StartAdd">+ 添加成员</button>
+    </div>
+
+    <div class="section">
+        <h3>家庭成员</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>姓名</th><th>关系</th><th>性别</th><th>生日</th><th>电话</th><th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in members)
+                {
+                    <tr>
+                        <td>@m.Name</td>
+                        <td>@m.Role</td>
+                        <td>@(m.Gender?.ToString() ?? "-")</td>
+                        <td>@(m.BirthDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                        <td>@(m.Phone ?? "-")</td>
+                        <td class="actions">
+                            <button class="btn btn-sm" @onclick="() => StartEdit(m)">编辑</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteMember(m.Id)">删除</button>
+                        </td>
+                    </tr>
+                }
+                @if (members.Count == 0)
+                {
+                    <tr><td colspan="6" class="empty-row">暂无家庭成员</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (showForm)
+    {
+        <div class="form-card">
+            <h3>@(editingMember?.Id > 0 ? "编辑成员" : "添加成员")</h3>
+            <EditForm Model="editingMember" OnValidSubmit="SaveMember">
+                <div class="form-row">
+                    <label>姓名 *</label>
+                    <InputText @bind-Value="editingMember!.Name" />
+                </div>
+                <div class="form-row">
+                    <label>关系</label>
+                    <InputText @bind-Value="editingMember!.Role" />
+                </div>
+                <div class="form-row">
+                    <label>性别</label>
+                    <InputSelect @bind-Value="editingMember!.Gender">
+                        <option value="">未选择</option>
+                        <option value="Male">男</option>
+                        <option value="Female">女</option>
+                        <option value="Unknown">未知</option>
+                    </InputSelect>
+                </div>
+                <div class="form-row">
+                    <label>生日</label>
+                    <InputDate @bind-Value="editingMember!.BirthDate" />
+                </div>
+                <div class="form-row">
+                    <label>电话</label>
+                    <InputText @bind-Value="editingMember!.Phone" />
+                </div>
+                <div class="form-row">
+                    <label>地址</label>
+                    <InputText @bind-Value="editingMember!.Address" />
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn" @onclick="CancelForm">取消</button>
+                </div>
+            </EditForm>
+
+            @if (editingMember?.Id == 0)
+            {
+                <div class="ocr-section">
+                    <h4>📄 身份证 OCR 识别</h4>
+                    <InputFile OnChange="OnOcrUpload" accept="image/*" />
+                    @if (ocrLoading)
+                    {
+                        <p class="loading-text">正在识别...</p>
+                    }
+                    @if (!string.IsNullOrEmpty(ocrMessage))
+                    {
+                        <p class="ocr-message">@ocrMessage</p>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <div class="section">
+        <h3>📁 证件管理</h3>
+        <div class="cert-filter">
+            <label>选择成员:</label>
+            <select @bind="selectedMemberIdForCert" @bind:after="LoadCertificates">
+                <option value="">-- 请选择 --</option>
+                @foreach (var m in members)
+                {
+                    <option value="@m.Id">@m.Name</option>
+                }
+            </select>
+        </div>
+        @if (certificates.Count > 0)
+        {
+            <table class="data-table">
+                <thead>
+                    <tr><th>名称</th><th>类型</th><th>号码</th><th>操作</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in certificates)
+                    {
+                        <tr>
+                            <td>@c.Name</td>
+                            <td>@c.Type</td>
+                            <td>@(c.Number ?? "-")</td>
+                            <td class="actions">
+                                <button class="btn btn-sm" @onclick="() => DownloadCert(c.Id)">下载</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteCert(c.Id)">删除</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<FamilyMember> members = new();
+    private List<Certificate> certificates = new();
+    private FamilyMember? editingMember;
+    private bool showForm;
+    private bool ocrLoading;
+    private string? ocrMessage;
+    private long? selectedMemberIdForCert;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembers();
+        ModeState.OnChange += StateChanged;
+    }
+
+    private async Task LoadMembers()
+    {
+        members = await MemberRepo.GetAllAsync();
+    }
+
+    private void StateChanged()
+    {
+        _ = LoadMembers();
+        StateHasChanged();
+    }
+
+    private void StartAdd()
+    {
+        editingMember = new FamilyMember { CreatedAt = DateTime.UtcNow };
+        showForm = true;
+        ocrMessage = null;
+    }
+
+    private void StartEdit(FamilyMember m)
+    {
+        editingMember = new FamilyMember
+        {
+            Id = m.Id, Name = m.Name, Role = m.Role, Gender = m.Gender,
+            BirthDate = m.BirthDate, Phone = m.Phone, Address = m.Address,
+            Preferences = m.Preferences, CreatedAt = m.CreatedAt
+        };
+        showForm = true;
+    }
+
+    private async Task SaveMember()
+    {
+        if (editingMember!.Id > 0)
+        {
+            editingMember.UpdatedAt = DateTime.UtcNow;
+            await MemberRepo.UpdateAsync(editingMember);
+        }
+        else
+        {
+            await MemberRepo.AddAsync(editingMember);
+        }
+        await MemberRepo.SaveChangesAsync();
+        showForm = false;
+        editingMember = null;
+        await LoadMembers();
+    }
+
+    private void CancelForm()
+    {
+        showForm = false;
+        editingMember = null;
+    }
+
+    private async Task DeleteMember(long id)
+    {
+        var m = await MemberRepo.GetByIdAsync(id);
+        if (m is not null)
+        {
+            m.IsDeleted = true;
+            m.UpdatedAt = DateTime.UtcNow;
+            await MemberRepo.SaveChangesAsync();
+            await LoadMembers();
+        }
+    }
+
+    private async Task OnOcrUpload(InputFileChangeEventArgs e)
+    {
+        if (e.File is null || !Ocr.IsAvailable) return;
+        ocrLoading = true;
+        ocrMessage = null;
+        try
+        {
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
+            var result = await Ocr.RecognizeAsync(ms.ToArray());
+            if (!string.IsNullOrEmpty(result.Name)) editingMember!.Name = result.Name;
+            if (result.Gender == "男") editingMember!.Gender = Gender.Male;
+            else if (result.Gender == "女") editingMember!.Gender = Gender.Female;
+            if (DateTime.TryParseExact(result.BirthDate, "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out var birth))
+                editingMember!.BirthDate = birth;
+            ocrMessage = $"识别成功: {result.Name} / {result.Gender} / {result.BirthDate}";
+        }
+        catch (Exception ex)
+        {
+            ocrMessage = $"识别失败: {ex.Message}";
+        }
+        finally
+        {
+            ocrLoading = false;
+        }
+    }
+
+    private async Task LoadCertificates()
+    {
+        if (selectedMemberIdForCert is null) { certificates = new(); return; }
+        certificates = await CertService.GetByMemberAsync(selectedMemberIdForCert);
+    }
+
+    private async Task DownloadCert(long id)
+    {
+        var fileData = await CertService.GetFileAsync(id);
+        if (fileData is null) return;
+        var (content, fileName) = fileData.Value;
+        using var ms = new MemoryStream(content);
+        await JS.InvokeVoidAsync("downloadFile", fileName, ms.ToArray());
+    }
+
+    private async Task DeleteCert(long id)
+    {
+        await CertService.DeleteAsync(id);
+        if (selectedMemberIdForCert is not null)
+            certificates = await CertService.GetByMemberAsync(selectedMemberIdForCert);
+    }
+
+    [Inject] IJSRuntime JS { get; set; } = default!;
+
+    public void Dispose()
+    {
+        ModeState.OnChange -= StateChanged;
+    }
+}
+
+<style>
+    .page-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
+    .section { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .section h3 { margin: 0 0 16px; font-size: 17px; color: #333; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .data-table th { text-align: left; padding: 10px 12px; background: #f5f7fa; color: #666; font-weight: 600; border-bottom: 2px solid #e0e0e0; }
+    .data-table td { padding: 10px 12px; border-bottom: 1px solid #eee; color: #333; }
+    .data-table .empty-row { text-align: center; color: #999; padding: 24px; }
+    .data-table .actions { display: flex; gap: 6px; }
+    .btn { padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; color: #555; }
+    .btn:hover { background: #f0f4f8; }
+    .btn-primary { background: #1976d2; color: white; border-color: #1976d2; }
+    .btn-primary:hover { background: #1565c0; }
+    .btn-danger { color: #d32f2f; border-color: #ffcdd2; }
+    .btn-danger:hover { background: #ffebee; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .form-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 2px solid #e3f2fd; }
+    .form-card h3 { margin: 0 0 16px; font-size: 17px; }
+    .form-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .form-row label { width: 80px; font-size: 14px; color: #555; }
+    .form-row input, .form-row select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    .form-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .ocr-section { margin-top: 20px; padding-top: 16px; border-top: 1px dashed #ddd; }
+    .ocr-section h4 { margin: 0 0 8px; font-size: 15px; }
+    .loading-text { color: #1976d2; font-size: 13px; }
+    .ocr-message { color: #2e7d32; font-size: 13px; background: #e8f5e9; padding: 8px 12px; border-radius: 6px; }
+    .cert-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .cert-filter select { padding: 6px; border: 1px solid #ddd; border-radius: 6px; }
+</style>

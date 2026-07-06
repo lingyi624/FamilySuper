@@ -1,0 +1,140 @@
+@inject INotificationService Notifications
+@implements IDisposable
+
+<div class="bell-container">
+    <button class="bell-btn @(unreadCount > 0 ? "has-unread" : "")" @onclick="TogglePanel">
+        <span class="bell-icon">🔔</span>
+        @if (unreadCount > 0)
+        {
+            <span class="badge">@unreadCount</span>
+        }
+    </button>
+
+    @if (showPanel)
+    {
+        <div class="bell-panel">
+            <div class="panel-header">
+                <h4>通知</h4>
+                <div class="panel-actions">
+                    <button class="link-btn" @onclick="MarkAllRead" disabled="@(unreadCount == 0)">全部已读</button>
+                    <button class="link-btn" @onclick="TogglePanel">关闭</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                @if (notifications.Count == 0)
+                {
+                    <div class="empty">暂无通知</div>
+                }
+                else
+                {
+                    foreach (var n in notifications)
+                    {
+                        <div class="notif-item @(n.IsRead ? "read" : "unread")" @onclick="() => MarkRead(n.Id)">
+                            <div class="notif-title">
+                                <span class="notif-cat">@GetCategoryIcon(n.Category)</span>
+                                @n.Title
+                            </div>
+                            <div class="notif-msg">@n.Message</div>
+                            <div class="notif-time">@GetTimeAgo(n.CreatedAt)</div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<FamilySuper.Core.Entities.NotificationItem> notifications = new();
+    private bool showPanel = false;
+    private int unreadCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        Notifications.OnNotification += OnNewNotification;
+    }
+
+    private void OnNewNotification(FamilySuper.Core.Entities.NotificationItem item)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task RefreshAsync()
+    {
+        notifications = await Notifications.GetPendingAsync(50);
+        unreadCount = notifications.Count(n => !n.IsRead);
+    }
+
+    private void TogglePanel()
+    {
+        showPanel = !showPanel;
+        if (showPanel)
+        {
+            _ = RefreshAsync();
+        }
+    }
+
+    private async Task MarkRead(long id)
+    {
+        await Notifications.MarkReadAsync(id);
+        await RefreshAsync();
+    }
+
+    private async Task MarkAllRead()
+    {
+        await Notifications.MarkAllReadAsync();
+        await RefreshAsync();
+    }
+
+    private string GetCategoryIcon(string category) => category switch
+    {
+        "medication" => "💊",
+        "bill" => "🧾",
+        "budget" => "📊",
+        _ => "🔔"
+    };
+
+    private string GetTimeAgo(DateTime time)
+    {
+        var diff = DateTime.UtcNow - time;
+        if (diff.TotalMinutes < 1) return "刚刚";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} 分钟前";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours} 小时前";
+        return time.ToString("MM-dd HH:mm");
+    }
+
+    public void Dispose()
+    {
+        Notifications.OnNotification -= OnNewNotification;
+    }
+}
+
+<style>
+    .bell-container { position: relative; }
+    .bell-btn { position: relative; background: none; border: none; cursor: pointer; font-size: 20px; padding: 4px 8px; border-radius: 6px; transition: background 0.15s; }
+    .bell-btn:hover { background: rgba(255,255,255,0.1); }
+    .bell-btn.has-unread { animation: shake 2s ease-in-out infinite; }
+    .badge { position: absolute; top: 0; right: 0; background: #f44336; color: white; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+    .bell-panel { position: absolute; top: 100%; right: 0; width: 340px; max-height: 480px; background: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); z-index: 1000; display: flex; flex-direction: column; overflow: hidden; margin-top: 8px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #eee; }
+    .panel-header h4 { margin: 0; font-size: 15px; color: #333; }
+    .panel-actions { display: flex; gap: 12px; }
+    .link-btn { background: none; border: none; color: #1976d2; cursor: pointer; font-size: 12px; padding: 2px 4px; }
+    .link-btn:disabled { color: #ccc; cursor: not-allowed; }
+    .panel-body { overflow-y: auto; }
+    .notif-item { padding: 12px 16px; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background 0.15s; }
+    .notif-item:hover { background: #f5f7fa; }
+    .notif-item.unread { background: #e3f2fd; }
+    .notif-item.unread:hover { background: #d6e8f7; }
+    .notif-title { font-size: 13px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 6px; }
+    .notif-cat { font-size: 14px; }
+    .notif-msg { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.5; }
+    .notif-time { font-size: 11px; color: #999; margin-top: 4px; }
+    .empty { text-align: center; color: #999; padding: 32px; font-size: 13px; }
+    @@keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+</style>

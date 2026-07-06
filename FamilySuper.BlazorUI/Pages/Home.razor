@@ -1,0 +1,102 @@
+@page "/"
+@inject Services.ModeStateContainer ModeState
+@inject IAgentService Agent
+
+<div class="home-page">
+    <div class="hero-card">
+        <h1>欢迎回家</h1>
+        <p class="subtitle">您的家庭智能中枢,守护每一位家人</p>
+        <div class="mode-display">
+            当前模式:
+            <strong class="mode-text mode-@ModeState.CurrentMode.ToString().ToLower()">
+                @(ModeState.CurrentMode == AppMode.Adult ? "大人模式" : "小孩模式")
+            </strong>
+        </div>
+    </div>
+
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <h3>智能对话</h3>
+            <p>基于 DeepSeek V4 Pro 的家庭管家,支持思考模式与工具调用</p>
+            <div class="feature-status @(Agent.IsAvailable ? "status-ok" : "status-warn")">
+                @(Agent.IsAvailable ? "已就绪" : "Mock 模式")
+            </div>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>隐私保护</h3>
+            <p>所有数据本地存储,AES-256 加密,不上传云端</p>
+            <div class="feature-status status-ok">已启用</div>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">🔄</div>
+            <h3>模式切换</h3>
+            <p>大人/小孩模式独立数据视图,内容过滤</p>
+            <div class="feature-status status-ok">已配置</div>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">🌐</div>
+            <h3>多端协同</h3>
+            <p>桌面端 + H5 移动端,frp 内网穿透远程访问</p>
+            <div class="feature-status status-warn">第一阶段待启用</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .home-page { max-width: 1100px; margin: 0 auto; }
+    .hero-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 32px;
+        border-radius: 16px;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    }
+    .hero-card h1 { margin: 0 0 8px; font-size: 28px; }
+    .subtitle { margin: 0 0 16px; opacity: 0.9; font-size: 15px; }
+    .mode-display {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255,255,255,0.15);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 14px;
+    }
+    .mode-text { font-weight: 600; }
+    .mode-adult { color: #a5d6a7; }
+    .mode-child { color: #ffcc80; }
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+    }
+    .feature-card {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .feature-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+    .feature-icon { font-size: 36px; margin-bottom: 12px; }
+    .feature-card h3 { margin: 0 0 8px; font-size: 16px; color: #333; }
+    .feature-card p { margin: 0 0 12px; font-size: 13px; color: #666; line-height: 1.5; }
+    .feature-status {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .status-ok { background: #e8f5e9; color: #2e7d32; }
+    .status-warn { background: #fff3e0; color: #e65100; }
+</style>

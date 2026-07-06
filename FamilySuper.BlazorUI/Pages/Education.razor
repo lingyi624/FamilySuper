@@ -1,0 +1,179 @@
+@page "/education"
+@inject IAgentService Agent
+@inject IEducationService EducationSvc
+
+<div class="edu-page">
+    <div class="edu-header">
+        <h2>📚 学习辅导</h2>
+        <div class="status @(Agent.IsAvailable ? "ok" : "warn")">
+            @(Agent.IsAvailable ? "AI 已连接" : "Mock 模式")
+        </div>
+    </div>
+
+    <div class="edu-layout">
+        <div class="history-sidebar">
+            <h3>📂 历史问答</h3>
+            <div class="subject-tabs">
+                @foreach (var s in subjects)
+                {
+                    <button class="subject-tab @(selectedSubject == s ? "active" : "")" @onclick="() => SelectSubject(s)">@s</button>
+                }
+            </div>
+            <div class="history-list">
+                @foreach (var r in history)
+                {
+                    <div class="history-item" @onclick="() => ViewRecord(r)">
+                        <div class="history-q">@r.Question</div>
+                        <div class="history-meta">@r.RecordDate.ToString("MM-dd HH:mm")</div>
+                    </div>
+                }
+                @if (history.Count == 0)
+                {
+                    <div class="empty">暂无历史</div>
+                }
+            </div>
+        </div>
+
+        <div class="chat-area">
+            <div class="messages" id="msgArea">
+                @if (messages.Count == 0)
+                {
+                    <div class="welcome">
+                        <div class="welcome-icon">📚</div>
+                        <h3>学习辅导助手</h3>
+                        <p>选择学科,开始提问吧!</p>
+                        <div class="tips">
+                            <div>💡 启发式教学,引导思考</div>
+                            <div>📖 涵盖语数英、理化生等学科</div>
+                            <div>🛡️ 安全适宜,适合未成年人</div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var msg in messages)
+                    {
+                        <div class="message @msg.Role">
+                            <div class="bubble">@msg.Content</div>
+                        </div>
+                    }
+                    @if (loading)
+                    {
+                        <div class="message assistant"><div class="bubble loading">老师正在思考...</div></div>
+                    }
+                }
+            </div>
+            <div class="input-bar">
+                <textarea @bind="userInput" @bind:event="oninput" placeholder="输入问题... (Enter 发送)"
+                          @onkeydown="HandleKey" disabled="@loading"></textarea>
+                <button class="send-btn" @onclick="Send" disabled="@loading || string.IsNullOrWhiteSpace(userInput)">发送</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string userInput = string.Empty;
+    private bool loading;
+    private List<ChatMessage> messages = new();
+    private List<EducationRecord> history = new();
+    private string selectedSubject = "语文";
+    private readonly List<string> subjects = new() { "语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistory();
+    }
+
+    private async Task LoadHistory()
+    {
+        history = await EducationSvc.GetRecordsAsync(subject: selectedSubject);
+    }
+
+    private async Task SelectSubject(string s)
+    {
+        selectedSubject = s;
+        messages.Clear();
+        await LoadHistory();
+    }
+
+    private async Task Send()
+    {
+        var text = userInput.Trim();
+        if (string.IsNullOrEmpty(text) || loading) return;
+
+        messages.Add(new ChatMessage("user", text));
+        var question = text;
+        userInput = string.Empty;
+        loading = true;
+
+        try
+        {
+            var historyMsgs = messages.Take(Math.Max(0, messages.Count - 1)).ToList();
+            var reply = await Agent.ChatAsync(question, AppMode.Child, historyMsgs, AgentPrompts.TutorSystemPrompt);
+            messages.Add(new ChatMessage("assistant", reply));
+            await EducationSvc.AddQaAsync(question, reply, selectedSubject);
+            await LoadHistory();
+        }
+        catch (Exception ex)
+        {
+            messages.Add(new ChatMessage("assistant", $"出错: {ex.Message}"));
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ViewRecord(EducationRecord r)
+    {
+        messages.Clear();
+        messages.Add(new ChatMessage("user", r.Question));
+        messages.Add(new ChatMessage("assistant", r.Answer));
+    }
+
+    private async Task HandleKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey) await Send();
+    }
+}
+
+<style>
+    .edu-page { display: flex; flex-direction: column; height: calc(100vh - 104px); max-width: 1200px; margin: 0 auto; }
+    .edu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .edu-header h2 { margin: 0; color: #333; font-size: 22px; }
+    .status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .status.ok { background: #e8f5e9; color: #2e7d32; }
+    .status.warn { background: #fff3e0; color: #e65100; }
+    .edu-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; flex: 1; min-height: 0; }
+    .history-sidebar { background: white; border-radius: 12px; padding: 16px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .history-sidebar h3 { margin: 0 0 12px; font-size: 15px; color: #333; }
+    .subject-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .subject-tab { padding: 4px 10px; border: 1px solid #ddd; border-radius: 14px; background: white; cursor: pointer; font-size: 12px; color: #555; }
+    .subject-tab.active { background: #1976d2; color: white; border-color: #1976d2; }
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-item { padding: 10px; background: #f5f7fa; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
+    .history-item:hover { background: #e3f2fd; }
+    .history-q { font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-meta { font-size: 11px; color: #999; margin-top: 4px; }
+    .empty { text-align: center; color: #999; padding: 20px; font-size: 13px; }
+    .chat-area { display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .messages { flex: 1; overflow-y: auto; padding: 20px; }
+    .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; }
+    .welcome-icon { font-size: 48px; margin-bottom: 16px; }
+    .welcome h3 { margin: 0 0 8px; color: #333; }
+    .welcome p { margin: 0 0 20px; }
+    .tips { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+    .message { display: flex; margin-bottom: 12px; }
+    .message.user { justify-content: flex-end; }
+    .message.assistant { justify-content: flex-start; }
+    .bubble { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .message.user .bubble { background: #1976d2; color: white; border-bottom-right-radius: 4px; }
+    .message.assistant .bubble { background: #f0f4f8; color: #333; border-bottom-left-radius: 4px; }
+    .bubble.loading { color: #999; font-style: italic; }
+    .input-bar { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #eee; }
+    textarea { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 14px; font-family: inherit; resize: none; height: 50px; outline: none; }
+    textarea:focus { border-color: #1976d2; }
+    .send-btn { padding: 0 24px; background: #1976d2; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .send-btn:disabled { background: #bbb; cursor: not-allowed; }
+</style>

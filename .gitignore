@@ -1,0 +1,31 @@
+## .NET 构建产物
+bin/
+obj/
+
+## 用户专属文件
+*.user
+*.suo
+.vs/
+*.rsuser
+
+## 模型与运行时数据(体积大,不入库)
+models/
+data/
+
+## 日志
+*.log
+logs/
+
+## IDE
+.idea/
+.vscode/
+
+## 操作系统
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+## 临时文件
+*.tmp
+*.bak

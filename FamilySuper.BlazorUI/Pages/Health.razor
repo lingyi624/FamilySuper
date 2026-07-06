@@ -1,0 +1,173 @@
+@page "/health"
+@inject IHealthService HealthSvc
+@inject IRepository<FamilyMember> MemberRepo
+
+<div class="page-container">
+    <div class="page-header">
+        <h2>❤️ 健康档案</h2>
+        <button class="btn btn-primary" @onclick="StartAdd">+ 添加记录</button>
+    </div>
+
+    <div class="section">
+        <div class="filter-bar">
+            <label>成员:</label>
+            <select @bind="filterMemberId" @bind:after="LoadRecords">
+                <option value="">全部</option>
+                @foreach (var m in members)
+                {
+                    <option value="@m.Id">@m.Name</option>
+                }
+            </select>
+            <label>类型:</label>
+            <select @bind="filterType" @bind:after="LoadRecords">
+                <option value="">全部</option>
+                @foreach (var t in Enum.GetValues<HealthRecordType>())
+                {
+                    <option value="@t">@t</option>
+                }
+            </select>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr><th>标题</th><th>类型</th><th>日期</th><th>医院</th><th>医生</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in records)
+                {
+                    <tr>
+                        <td>@r.Title</td>
+                        <td><span class="tag">@r.RecordType</span></td>
+                        <td>@r.RecordDate.ToString("yyyy-MM-dd")</td>
+                        <td>@(r.Hospital ?? "-")</td>
+                        <td>@(r.Doctor ?? "-")</td>
+                        <td class="actions">
+                            <button class="btn btn-sm" @onclick="() => StartEdit(r)">编辑</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => Delete(r.Id)">删除</button>
+                        </td>
+                    </tr>
+                }
+                @if (records.Count == 0)
+                {
+                    <tr><td colspan="6" class="empty-row">暂无记录</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (showForm)
+    {
+        <div class="form-card">
+            <h3>@(editing.Id > 0 ? "编辑记录" : "添加记录")</h3>
+            <EditForm Model="editing" OnValidSubmit="Save">
+                <div class="form-row"><label>标题 *</label><InputText @bind-Value="editing.Title" /></div>
+                <div class="form-row">
+                    <label>类型</label>
+                    <InputSelect @bind-Value="editing.RecordType">
+                        @foreach (var t in Enum.GetValues<HealthRecordType>())
+                        {
+                            <option value="@t">@t</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="form-row"><label>成员</label>
+                    <InputSelect @bind-Value="editing.MemberId">
+                        <option value="">无</option>
+                        @foreach (var m in members)
+                        {
+                            <option value="@m.Id">@m.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="form-row"><label>日期</label><InputDate @bind-Value="editing.RecordDate" /></div>
+                <div class="form-row"><label>医院</label><InputText @bind-Value="editing.Hospital" /></div>
+                <div class="form-row"><label>医生</label><InputText @bind-Value="editing.Doctor" /></div>
+                <div class="form-row"><label>内容</label><InputTextArea @bind-Value="editing.Content" /></div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn" @onclick="Cancel">取消</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+@code {
+    private List<HealthRecord> records = new();
+    private List<FamilyMember> members = new();
+    private HealthRecord editing = new();
+    private bool showForm;
+    private long? filterMemberId;
+    private HealthRecordType? filterType;
+
+    protected override async Task OnInitializedAsync()
+    {
+        members = await MemberRepo.GetAllAsync();
+        await LoadRecords();
+    }
+
+    private async Task LoadRecords()
+    {
+        records = await HealthSvc.GetRecordsAsync(filterMemberId, filterType);
+    }
+
+    private void StartAdd()
+    {
+        editing = new HealthRecord { RecordDate = DateTime.UtcNow, CreatedAt = DateTime.UtcNow };
+        showForm = true;
+    }
+
+    private void StartEdit(HealthRecord r)
+    {
+        editing = new HealthRecord
+        {
+            Id = r.Id, Title = r.Title, RecordType = r.RecordType, Content = r.Content,
+            RecordDate = r.RecordDate, Doctor = r.Doctor, Hospital = r.Hospital,
+            MemberId = r.MemberId, Remark = r.Remark, CreatedAt = r.CreatedAt
+        };
+        showForm = true;
+    }
+
+    private async Task Save()
+    {
+        if (editing.Id > 0) await HealthSvc.UpdateAsync(editing);
+        else await HealthSvc.AddAsync(editing);
+        showForm = false;
+        await LoadRecords();
+    }
+
+    private void Cancel() => showForm = false;
+
+    private async Task Delete(long id)
+    {
+        await HealthSvc.DeleteAsync(id);
+        await LoadRecords();
+    }
+}
+
+<style>
+    .page-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
+    .section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .filter-bar label { font-size: 13px; color: #666; }
+    .filter-bar select { padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .data-table th { text-align: left; padding: 10px 12px; background: #f5f7fa; color: #666; font-weight: 600; border-bottom: 2px solid #e0e0e0; }
+    .data-table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+    .data-table .empty-row { text-align: center; color: #999; padding: 24px; }
+    .data-table .actions { display: flex; gap: 6px; }
+    .tag { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; background: #e3f2fd; color: #1565c0; }
+    .btn { padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; color: #555; }
+    .btn:hover { background: #f0f4f8; }
+    .btn-primary { background: #1976d2; color: white; border-color: #1976d2; }
+    .btn-danger { color: #d32f2f; border-color: #ffcdd2; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .form-card { background: white; border-radius: 12px; padding: 20px; margin-top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 2px solid #e3f2fd; }
+    .form-card h3 { margin: 0 0 16px; font-size: 17px; }
+    .form-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .form-row label { width: 80px; font-size: 14px; color: #555; }
+    .form-row input, .form-row select, .form-row textarea { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    .form-row textarea { min-height: 60px; resize: vertical; }
+    .form-actions { display: flex; gap: 8px; margin-top: 16px; }
+</style>

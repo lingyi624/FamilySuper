@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="FamilySuper.Agent/FamilySuper.Agent.csproj" />
+  <Project Path="FamilySuper.API/FamilySuper.API.csproj" />
+  <Project Path="FamilySuper.BlazorUI/FamilySuper.BlazorUI.csproj" />
+  <Project Path="FamilySuper.Core/FamilySuper.Core.csproj" />
+  <Project Path="FamilySuper.Data/FamilySuper.Data.csproj" />
+  <Project Path="FamilySuper.Host.WPF/FamilySuper.Host.WPF.csproj" />
+  <Project Path="FamilySuper.Infrastructure/FamilySuper.Infrastructure.csproj" />
+</Solution>

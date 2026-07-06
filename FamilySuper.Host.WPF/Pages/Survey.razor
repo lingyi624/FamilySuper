@@ -1,0 +1,351 @@
+@page "/survey"
+@inject ISurveyService SurveySvc
+@inject IRepository<FamilyMember> MemberRepo
+
+<div class="page-container">
+    <div class="page-header">
+        <h2>📋 家庭调研</h2>
+        <button class="btn btn-primary" @onclick="StartCreate">+ 创建调研</button>
+    </div>
+
+    <div class="section">
+        <div class="filter-bar">
+            <label class="checkbox-label">
+                <InputCheckbox @bind-Value="showInactive" />
+                <span>显示已结束</span>
+            </label>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr><th>标题</th><th>描述</th><th>状态</th><th>开始时间</th><th>响应数</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var s in surveys)
+                {
+                    <tr>
+                        <td><strong>@s.Title</strong></td>
+                        <td>@(s.Description ?? "-")</td>
+                        <td>
+                            @if (!s.IsActive)
+                            { <span class="tag tag-gray">已结束</span> }
+                            else if (s.EndDate.HasValue && s.EndDate < DateTime.UtcNow)
+                            { <span class="tag tag-orange">已过期</span> }
+                            else
+                            { <span class="tag tag-green">进行中</span> }
+                        </td>
+                        <td>@s.StartDate.ToString("yyyy-MM-dd")</td>
+                        <td>@(responseCounts.TryGetValue(s.Id, out var c) ? c.ToString() : "0")</td>
+                        <td class="actions">
+                            <button class="btn btn-sm" @onclick="() => ViewSurvey(s)">查看</button>
+                            @if (s.IsActive)
+                            {
+                                <button class="btn btn-sm" @onclick="() => FillSurvey(s)">填写</button>
+                            }
+                            <button class="btn btn-sm" @onclick="() => StartEdit(s)">编辑</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => Delete(s.Id)">删除</button>
+                        </td>
+                    </tr>
+                }
+                @if (surveys.Count == 0)
+                {
+                    <tr><td colspan="6" class="empty-row">暂无调研</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (showCreateForm)
+    {
+        <div class="form-card">
+            <h3>@(editing.Id > 0 ? "编辑调研" : "创建调研")</h3>
+            <EditForm Model="editing" OnValidSubmit="Save">
+                <div class="form-row"><label>标题 *</label><InputText @bind-Value="editing.Title" /></div>
+                <div class="form-row"><label>描述</label><InputTextArea @bind-Value="editing.Description" /></div>
+                <div class="form-row">
+                    <label>字段配置(JSON)</label>
+                    <InputTextArea @bind-Value="editing.FieldsJson" rows="6" placeholder='[{"name":"q1","label":"问题1","type":"text"},{"name":"q2","label":"问题2","type":"select","options":["选项A","选项B"]},{"name":"q3","label":"问题3","type":"multi","options":["A","B","C"]}]' />
+                </div>
+                <div class="form-row"><label>开始日期</label><InputDate @bind-Value="editing.StartDate" /></div>
+                <div class="form-row"><label>结束日期(可选)</label><InputDate @bind-Value="editing.EndDate" /></div>
+                <div class="form-row">
+                    <label class="checkbox-label">
+                        <InputCheckbox @bind-Value="editing.IsActive" />
+                        <span>启用此调研</span>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn" @onclick="CancelCreate">取消</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @if (showFillForm && currentSurvey is not null)
+    {
+        <div class="form-card">
+            <h3>填写调研 - @currentSurvey.Title</h3>
+            <p>@(currentSurvey.Description ?? "")</p>
+            <EditForm Model="currentSurvey" OnValidSubmit="Submit">
+                @foreach (var field in currentFields)
+                {
+                    <div class="form-row">
+                        <label>@field.Label *</label>
+                        @if (field.Type == "select")
+                        {
+                            <InputSelect @bind-Value="fillValues[field.Name]">
+                                <option value="">请选择</option>
+                                @foreach (var opt in field.Options ?? [])
+                                {
+                                    <option value="@opt">@opt</option>
+                                }
+                            </InputSelect>
+                        }
+                        else if (field.Type == "multi")
+                        {
+                            <div class="multi-select">
+                                @foreach (var opt in field.Options ?? [])
+                                {
+                                    <label class="checkbox-label"><InputCheckbox @bind-Value="multiValues[field.Name + opt]" />@opt</label>
+                                }
+                            </div>
+                        }
+                        else if (field.Type == "number")
+                        {
+                            <InputNumber @bind-Value="numValues[field.Name]" />
+                        }
+                        else if (field.Type == "date")
+                        {
+                            <InputDate @bind-Value="dateValues[field.Name]" />
+                        }
+                        else
+                        {
+                            <InputText @bind-Value="fillValues[field.Name]" />
+                        }
+                    </div>
+                }
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">提交</button>
+                    <button type="button" class="btn" @onclick="CancelFill">取消</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @if (showStats && currentSurvey is not null && stats is not null)
+    {
+        <div class="form-card">
+            <h3>统计结果 - @currentSurvey.Title</h3>
+            <div class="stat-summary">
+                <div class="stat-item">总响应数: <strong>@stats.ResponseCount</strong></div>
+            </div>
+            @foreach (var field in currentFields)
+            {
+                if (stats.Distribution.TryGetValue(field.Name, out var dist))
+                {
+                    <h4 class="sub-title">@field.Label</h4>
+                    <div class="bar-chart">
+                        @foreach (var kv in dist.OrderByDescending(x => x.Value))
+                        {
+                            var max = dist.Values.Max();
+                            var pct = max > 0 ? (kv.Value * 100.0 / max) : 0;
+                            <div class="bar-row">
+                                <span class="bar-label">@kv.Key</span>
+                                <div class="bar-track"><div class="bar-fill" style="width: @pct%"></div></div>
+                                <span class="bar-value">@kv.Value</span>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            <button class="btn btn-sm" @onclick="CancelStats">返回列表</button>
+        </div>
+    }
+</div>
+
+@code {
+    private List<FamilySuper.Core.Entities.Survey> surveys = new();
+    private Dictionary<long, int> responseCounts = new();
+    private bool showInactive = false;
+    private bool showCreateForm = false;
+    private bool showFillForm = false;
+    private bool showStats = false;
+    private FamilySuper.Core.Entities.Survey editing = new();
+    private FamilySuper.Core.Entities.Survey? currentSurvey;
+    private List<SurveyField> currentFields = new();
+    private SurveyStatistic? stats;
+    private Dictionary<string, string> fillValues = new();
+    private Dictionary<string, bool> multiValues = new();
+    private Dictionary<string, decimal> numValues = new();
+    private Dictionary<string, DateTime?> dateValues = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSurveys();
+    }
+
+    private async Task LoadSurveys()
+    {
+        surveys = await SurveySvc.GetSurveysAsync(showInactive ? null : true);
+        responseCounts.Clear();
+        foreach (var s in surveys)
+        {
+            var responses = await SurveySvc.GetResponsesAsync(s.Id);
+            responseCounts[s.Id] = responses.Count;
+        }
+    }
+
+    private void StartCreate()
+    {
+        editing = new FamilySuper.Core.Entities.Survey { StartDate = DateTime.UtcNow, IsActive = true };
+        showCreateForm = true;
+    }
+
+    private void StartEdit(FamilySuper.Core.Entities.Survey s)
+    {
+        editing = new FamilySuper.Core.Entities.Survey
+        {
+            Id = s.Id, Title = s.Title, Description = s.Description,
+            FieldsJson = s.FieldsJson, StartDate = s.StartDate,
+            EndDate = s.EndDate, IsActive = s.IsActive
+        };
+        showCreateForm = true;
+    }
+
+    private void CancelCreate() => showCreateForm = false;
+
+    private async Task Save()
+    {
+        if (editing.Id > 0) await SurveySvc.UpdateSurveyAsync(editing);
+        else await SurveySvc.AddSurveyAsync(editing);
+        showCreateForm = false;
+        await LoadSurveys();
+    }
+
+    private async Task Delete(long id)
+    {
+        await SurveySvc.DeleteSurveyAsync(id);
+        await LoadSurveys();
+    }
+
+    private void FillSurvey(FamilySuper.Core.Entities.Survey s)
+    {
+        currentSurvey = s;
+        currentFields = ParseFields(s.FieldsJson);
+        fillValues = new();
+        multiValues = new();
+        foreach (var f in currentFields)
+        {
+            fillValues[f.Name] = string.Empty;
+            if (f.Type == "multi")
+            {
+                foreach (var opt in f.Options ?? []) multiValues[f.Name + opt] = false;
+            }
+        }
+        showFillForm = true;
+    }
+
+    private void CancelFill() => showFillForm = false;
+
+    private async Task Submit()
+    {
+        var json = BuildValuesJson();
+        await SurveySvc.SubmitResponseAsync(new FamilySuper.Core.Entities.SurveyResponse
+        {
+            SurveyId = currentSurvey!.Id,
+            ValuesJson = json
+        });
+        showFillForm = false;
+        await LoadSurveys();
+    }
+
+    private void ViewSurvey(FamilySuper.Core.Entities.Survey s)
+    {
+        currentSurvey = s;
+        currentFields = ParseFields(s.FieldsJson);
+        _ = LoadStats(s.Id);
+    }
+
+    private async Task LoadStats(long id)
+    {
+        stats = await SurveySvc.GetStatisticAsync(id);
+        showStats = true;
+    }
+
+    private void CancelStats() => showStats = false;
+
+    private string GetFieldValue(string name) => fillValues.TryGetValue(name, out var v) ? v : string.Empty;
+
+    private static List<SurveyField> ParseFields(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return System.Text.Json.JsonSerializer.Deserialize<List<SurveyField>>(json) ?? []; }
+        catch { return []; }
+    }
+
+    private string BuildValuesJson()
+    {
+        var dict = new Dictionary<string, object>();
+        foreach (var f in currentFields)
+        {
+            if (f.Type == "multi")
+            {
+                var selected = currentFields.First(x => x.Name == f.Name).Options?.Where(o => multiValues.TryGetValue(f.Name + o, out var v) && v).ToList();
+                dict[f.Name] = selected ?? new List<string>();
+            }
+            else if (f.Type == "number")
+            {
+                if (numValues.TryGetValue(f.Name, out var n)) dict[f.Name] = n;
+            }
+            else if (f.Type == "date")
+            {
+                if (dateValues.TryGetValue(f.Name, out var d) && d.HasValue) dict[f.Name] = d.Value.ToString("yyyy-MM-dd");
+            }
+            else
+            {
+                dict[f.Name] = fillValues[f.Name];
+            }
+        }
+        return System.Text.Json.JsonSerializer.Serialize(dict);
+    }
+}
+
+<style>
+    .page-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
+    .section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .filter-bar { margin-bottom: 12px; }
+    .checkbox-label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px; color: #666; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .data-table th { text-align: left; padding: 10px 12px; background: #f5f7fa; color: #666; font-weight: 600; border-bottom: 2px solid #e0e0e0; }
+    .data-table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+    .data-table .empty-row { text-align: center; color: #999; padding: 24px; }
+    .data-table .actions { display: flex; gap: 6px; }
+    .tag { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+    .tag-green { background: #e8f5e9; color: #2e7d32; }
+    .tag-gray { background: #f5f5f5; color: #999; }
+    .tag-orange { background: #fff3e0; color: #ef6c00; }
+    .btn { padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; color: #555; }
+    .btn:hover { background: #f0f4f8; }
+    .btn-primary { background: #1976d2; color: white; border-color: #1976d2; }
+    .btn-danger { color: #d32f2f; border-color: #ffcdd2; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .form-card { background: white; border-radius: 12px; padding: 20px; margin-top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 2px solid #e3f2fd; }
+    .form-card h3 { margin: 0 0 16px; font-size: 17px; }
+    .form-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .form-row label { width: 120px; font-size: 14px; color: #555; padding-top: 8px; }
+    .form-row input, .form-row select, .form-row textarea { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    .form-row textarea { min-height: 60px; resize: vertical; }
+    .multi-select { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; }
+    .form-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .stat-summary { padding: 12px; background: #f5f7fa; border-radius: 8px; margin-bottom: 16px; }
+    .stat-item { font-size: 14px; }
+    .sub-title { font-size: 14px; color: #555; margin: 16px 0 8px; }
+    .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+    .bar-row { display: flex; align-items: center; gap: 8px; }
+    .bar-label { width: 100px; font-size: 13px; color: #555; }
+    .bar-track { flex: 1; height: 22px; background: #f0f0f0; border-radius: 11px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, #42a5f5, #1976d2); }
+    .bar-value { width: 40px; font-size: 12px; color: #666; text-align: right; }
+</style>

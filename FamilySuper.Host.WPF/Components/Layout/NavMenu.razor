@@ -1,0 +1,124 @@
+@inject Services.ModeStateContainer ModeState
+@inject NavigationManager Navigation
+
+<div class="nav-menu">
+    <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+        <span class="nav-icon">🏠</span>
+        <span>首页</span>
+    </NavLink>
+    <NavLink class="nav-item" href="chat">
+        <span class="nav-icon">💬</span>
+        <span>智能对话</span>
+    </NavLink>
+    <NavLink class="nav-item" href="mode-switch">
+        <span class="nav-icon">🔄</span>
+        <span>模式切换</span>
+    </NavLink>
+
+    @if (ModeState.CurrentMode == AppMode.Adult)
+    {
+        <div class="nav-section">大人专属</div>
+        <NavLink class="nav-item" href="family">
+            <span class="nav-icon">👨‍👩‍👧</span>
+            <span>家庭信息</span>
+        </NavLink>
+        <NavLink class="nav-item" href="finance">
+            <span class="nav-icon">💰</span>
+            <span>财务管理</span>
+        </NavLink>
+        <NavLink class="nav-item" href="budget">
+            <span class="nav-icon">📊</span>
+            <span>预算管理</span>
+        </NavLink>
+        <NavLink class="nav-item" href="bill">
+            <span class="nav-icon">🧾</span>
+            <span>账单提醒</span>
+        </NavLink>
+        <NavLink class="nav-item" href="health">
+            <span class="nav-icon">❤️</span>
+            <span>健康档案</span>
+        </NavLink>
+        <NavLink class="nav-item" href="medication">
+            <span class="nav-icon">💊</span>
+            <span>用药管理</span>
+        </NavLink>
+        <NavLink class="nav-item" href="symptom">
+            <span class="nav-icon">🩺</span>
+            <span>症状自诊</span>
+        </NavLink>
+        <NavLink class="nav-item" href="work">
+            <span class="nav-icon">💼</span>
+            <span>工作日程</span>
+        </NavLink>
+        <NavLink class="nav-item" href="survey">
+            <span class="nav-icon">📋</span>
+            <span>家庭调研</span>
+        </NavLink>
+        <NavLink class="nav-item" href="doc-assistant">
+            <span class="nav-icon">📝</span>
+            <span>文档助手</span>
+        </NavLink>
+        <NavLink class="nav-item" href="file-organizer">
+            <span class="nav-icon">📁</span>
+            <span>文件整理</span>
+        </NavLink>
+    }
+    else
+    {
+        <div class="nav-section">儿童乐园</div>
+        <NavLink class="nav-item" href="education">
+            <span class="nav-icon">📚</span>
+            <span>学习辅导</span>
+        </NavLink>
+        <NavLink class="nav-item" href="study-plan">
+            <span class="nav-icon">📝</span>
+            <span>学习计划</span>
+        </NavLink>
+        <NavLink class="nav-item" href="games">
+            <span class="nav-icon">🎮</span>
+            <span>互动游戏</span>
+        </NavLink>
+    }
+</div>
+
+<style>
+    .nav-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 20px;
+        text-decoration: none;
+        color: #444;
+        font-size: 14px;
+        transition: all 0.15s ease;
+        border-left: 3px solid transparent;
+    }
+    .nav-item:hover {
+        background: #f0f4f8;
+        color: #1976d2;
+    }
+    .nav-item.active {
+        background: #e3f2fd;
+        color: #1976d2;
+        border-left-color: #1976d2;
+        font-weight: 600;
+    }
+    .nav-icon {
+        font-size: 18px;
+        width: 24px;
+        text-align: center;
+    }
+    .nav-section {
+        margin-top: 16px;
+        padding: 8px 20px 4px;
+        font-size: 11px;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+</style>

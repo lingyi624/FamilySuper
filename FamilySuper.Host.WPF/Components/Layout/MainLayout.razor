@@ -1,0 +1,105 @@
+@inherits LayoutComponentBase
+@inject Services.ModeStateContainer ModeState
+
+<div class="app-shell">
+    <header class="app-header">
+        <div class="app-title">
+            <span class="logo">🏠</span>
+            <span>家庭超级管家</span>
+        </div>
+        <div class="header-right">
+            <NotificationBell />
+            <div class="mode-badge mode-@ModeState.CurrentMode.ToString().ToLower()">
+                @(ModeState.CurrentMode == AppMode.Adult ? "大人模式" : "小孩模式")
+            </div>
+        </div>
+    </header>
+
+    <div class="app-body">
+        <nav class="app-nav">
+            <NavMenu />
+        </nav>
+
+        <main class="app-main">
+            @Body
+        </main>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        ModeState.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        ModeState.OnChange -= StateHasChanged;
+    }
+}
+
+<style>
+    .app-shell {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: #f5f5f7;
+        font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+    .app-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 24px;
+        height: 56px;
+        background: linear-gradient(135deg, #2d2d30 0%, #3c3c42 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .app-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .logo { font-size: 22px; }
+    .mode-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .mode-adult {
+        background: rgba(76, 175, 80, 0.2);
+        color: #81c784;
+        border: 1px solid #4caf50;
+    }
+    .mode-child {
+        background: rgba(255, 152, 0, 0.2);
+        color: #ffb74d;
+        border: 1px solid #ff9800;
+    }
+    .app-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+    .app-nav {
+        width: 220px;
+        background: white;
+        border-right: 1px solid #e0e0e0;
+        padding: 16px 0;
+        overflow-y: auto;
+    }
+    .app-main {
+        flex: 1;
+        padding: 24px;
+        overflow-y: auto;
+    }
+</style>
