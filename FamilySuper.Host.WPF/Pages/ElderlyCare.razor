@@ -1,0 +1,365 @@
+@page "/elderly-care"
+@inject IElderlyCareService ElderlySvc
+@inject IRepository<FamilyMember> MemberRepo
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using FamilySuper.Host.WPF.Components.Dialogs
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🏥</span>
+                        <span>养老关怀</span>
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6" Class="d-flex align-center gap-2">
+                        <span>🆘</span>
+                        <span>紧急联络人</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAddContact" Variant="Variant.Filled">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加联络人
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudGrid>
+                    @foreach (var c in contacts)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Elevation="2" Class="@(c.IsPrimary ? "border-success" : "")">
+                                <MudCardContent>
+                                    <div class="d-flex justify-between align-start mb-2">
+                                        <MudText Typo="Typo.h6">@c.Name</MudText>
+                                        @if (c.IsPrimary)
+                                        {
+                                            <MudChip T="string" Color="Color.Success" Size="Size.Small">主要</MudChip>
+                                        }
+                                    </div>
+                                    <MudText Typo="Typo.body2" Class="text-gray-500 mb-2">@c.Relationship</MudText>
+                                    <MudText Typo="Typo.body2">📞 @c.PhoneNumber</MudText>
+                                    @if (!string.IsNullOrEmpty(c.AlternatePhone))
+                                    {
+                                        <MudText Typo="Typo.body2">📱 @c.AlternatePhone</MudText>
+                                    }
+                                    <div class="d-flex gap-2 mt-3">
+                                        <MudButton Size="Size.Small" Color="Color.Info" OnClick="() => StartEditContact(c)">
+                                            <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                                        </MudButton>
+                                        <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => DeleteContact(c.Id)">
+                                            <MudIcon Icon="@Icons.Material.Filled.Delete" />
+                                        </MudButton>
+                                    </div>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                    @if (contacts.Count == 0)
+                    {
+                        <MudItem xs="12">
+                            <MudAlert Severity="Severity.Info" Elevation="0">暂无紧急联络人</MudAlert>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    @if (showContactForm)
+    {
+        <MudItem xs="12" Class="mt-4">
+            <MudCard Elevation="4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(editingContact.Id > 0 ? "编辑联络人" : "添加联络人")</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm @ref="_form" @bind-IsValid="_isFormValid" Model="editingContact">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="姓名 *" @bind-Value="editingContact.Name" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="关系" @bind-Value="editingContact.Relationship" Placeholder="配偶/子女/邻居" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="电话 *" @bind-Value="editingContact.PhoneNumber" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="备用电话" @bind-Value="editingContact.AlternatePhone" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="成员" @bind-Value="editingContact.MemberId" T="long?">
+                                    <MudSelectItem T="long?" Value="null">请选择</MudSelectItem>
+                                    @foreach (var m in members)
+                                    {
+                                        <MudSelectItem T="long?" Value="m.Id">@m.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudCheckBox @bind-Value="editingContact.IsPrimary" Label="设为主要联络人" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="备注" @bind-Value="editingContact.Notes" Multiline="true" Rows="2" />
+                            </MudItem>
+                        </MudGrid>
+                        <div class="mt-4">
+                            <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!_isFormValid)" OnClick="SaveContact">保存</MudButton>
+                            <MudButton Color="Color.Default" OnClick="CancelContactForm" Class="ml-2">取消</MudButton>
+                        </div>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+
+    <MudItem xs="12" Class="mt-4">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6" Class="d-flex align-center gap-2">
+                        <span>📊</span>
+                        <span>健康监测</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAddMetric" Variant="Variant.Filled">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        记录数据
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudSelect 
+                    Label="成员" 
+                    @bind-Value="metricMemberFilter" 
+                    T="long?" 
+                    Placeholder="全部"
+                    Class="mb-4"
+                    OnChange="LoadMetrics">
+                    <MudSelectItem T="long?" Value="null">全部</MudSelectItem>
+                    @foreach (var m in members)
+                    {
+                        <MudSelectItem T="long?" Value="m.Id">@m.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudTable Items="metrics" T="HealthMetric" Hover="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>日期</MudTh>
+                        <MudTh>成员</MudTh>
+                        <MudTh>心率</MudTh>
+                        <MudTh>血压</MudTh>
+                        <MudTh>血糖</MudTh>
+                        <MudTh>体重</MudTh>
+                        <MudTh>体温</MudTh>
+                        <MudTh>操作</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@(context.RecordDate?.ToString("yyyy-MM-dd HH:mm") ?? "-")</MudTd>
+                        <MudTd>@GetMemberName(context.MemberId)</MudTd>
+                        <MudTd>@(context.HeartRate?.ToString("F0") ?? "-")</MudTd>
+                        <MudTd>@(context.SystolicPressure.HasValue && context.DiastolicPressure.HasValue ? $"{context.SystolicPressure}/{context.DiastolicPressure}" : "-")</MudTd>
+                        <MudTd>@(context.BloodSugar?.ToString("F1") ?? "-")</MudTd>
+                        <MudTd>@(context.Weight?.ToString("F1") ?? "-")</MudTd>
+                        <MudTd>@(context.Temperature?.ToString("F1") ?? "-")</MudTd>
+                        <MudTd>
+                            <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => DeleteMetric(context.Id)">
+                                <MudIcon Icon="@Icons.Material.Filled.Delete" />
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudAlert Severity="Severity.Info" Elevation="0">暂无记录</MudAlert>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    @if (showMetricForm)
+    {
+        <MudItem xs="12" Class="mt-4">
+            <MudCard Elevation="4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">记录健康数据</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm @ref="_metricForm" @bind-IsValid="_isMetricFormValid" Model="editingMetric">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="成员" @bind-Value="editingMetric.MemberId" T="long?">
+                                    <MudSelectItem T="long?" Value="null">请选择</MudSelectItem>
+                                    @foreach (var m in members)
+                                    {
+                                        <MudSelectItem T="long?" Value="m.Id">@m.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker Label="日期" @bind-Date="editingMetric.RecordDate" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="心率(bpm)" @bind-Value="editingMetric.HeartRate" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="血压" @bind-Value="bloodPressureText" Placeholder="收缩压/舒张压" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="血糖(mmol/L)" @bind-Value="editingMetric.BloodSugar" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="体重(kg)" @bind-Value="editingMetric.Weight" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="体温(°C)" @bind-Value="editingMetric.Temperature" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="备注" @bind-Value="editingMetric.Notes" />
+                            </MudItem>
+                        </MudGrid>
+                        <div class="mt-4">
+                            <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!_isMetricFormValid)" OnClick="SaveMetric">保存</MudButton>
+                            <MudButton Color="Color.Default" OnClick="CancelMetricForm" Class="ml-2">取消</MudButton>
+                        </div>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private List<FamilyMember> members = new();
+    private List<EmergencyContact> contacts = new();
+    private List<HealthMetric> metrics = new();
+    private EmergencyContact editingContact = new();
+    private HealthMetric editingMetric = new();
+    private bool showContactForm, showMetricForm;
+    private MudForm _form = default!, _metricForm = default!;
+    private bool _isFormValid, _isMetricFormValid;
+    private long? metricMemberFilter;
+    private string bloodPressureText = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        members = await MemberRepo.GetAllAsync();
+        await LoadContacts();
+        await LoadMetrics();
+    }
+
+    private async Task LoadContacts() => contacts = await ElderlySvc.GetContactsAsync();
+    private async Task LoadMetrics() => metrics = await ElderlySvc.GetMetricsAsync(metricMemberFilter);
+
+    private string GetMemberName(long? id)
+        => id == null ? "-" : members.FirstOrDefault(m => m.Id == id)?.Name ?? "未知";
+
+    private void StartAddContact()
+    {
+        editingContact = new EmergencyContact();
+        showContactForm = true;
+    }
+
+    private void StartEditContact(EmergencyContact c)
+    {
+        editingContact = new EmergencyContact 
+        { 
+            Id = c.Id, Name = c.Name, Relationship = c.Relationship, 
+            PhoneNumber = c.PhoneNumber, AlternatePhone = c.AlternatePhone, 
+            IsPrimary = c.IsPrimary, MemberId = c.MemberId, Notes = c.Notes 
+        };
+        showContactForm = true;
+    }
+
+    private void CancelContactForm() => showContactForm = false;
+
+    private async Task SaveContact()
+    {
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        if (editingContact.Id > 0) 
+        {
+            await ElderlySvc.UpdateContactAsync(editingContact);
+            Snackbar.Add("联络人信息已更新", Severity.Success);
+        }
+        else 
+        {
+            await ElderlySvc.AddContactAsync(editingContact);
+            Snackbar.Add("紧急联络人已添加", Severity.Success);
+        }
+        showContactForm = false;
+        await LoadContacts();
+    }
+
+    private async Task DeleteContact(long id)
+    {
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("确认删除");
+        var result = await dialog.Result;
+        if (result.Canceled) return;
+
+        try
+        {
+            await ElderlySvc.DeleteContactAsync(id);
+            await LoadContacts();
+            Snackbar.Add("联络人已删除", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"删除失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void StartAddMetric()
+    {
+        editingMetric = new HealthMetric { RecordDate = DateTime.UtcNow };
+        bloodPressureText = string.Empty;
+        showMetricForm = true;
+    }
+
+    private void CancelMetricForm() => showMetricForm = false;
+
+    private async Task SaveMetric()
+    {
+        await _metricForm.ValidateAsync();
+        if (!_isMetricFormValid) return;
+        await ElderlySvc.AddMetricAsync(editingMetric);
+        Snackbar.Add("健康数据已记录", Severity.Success);
+        showMetricForm = false;
+        await LoadMetrics();
+    }
+
+    private async Task DeleteMetric(long id)
+    {
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("确认删除");
+        var result = await dialog.Result;
+        if (result.Canceled) return;
+
+        try
+        {
+            await ElderlySvc.DeleteMetricAsync(id);
+            await LoadMetrics();
+            Snackbar.Add("健康数据已删除", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"删除失败: {ex.Message}", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,84 @@
+@using MudBlazor
+@using FamilySuper.Core.Entities
+
+<MudDialog MaxWidth="MaxWidth.Medium">
+    <DialogContent>
+        <MudCard>
+            <MudCardMedia Style="height: 400px; overflow: hidden;">
+                <img src="@GetPhotoUrl(Photo.FilePath)" 
+                     alt="@Photo.Title" 
+                     class="w-full h-full object-contain" />
+            </MudCardMedia>
+            <MudCardContent>
+                <MudText Typo="Typo.h5" Class="mb-2">@Photo.Title</MudText>
+                
+                @if (!string.IsNullOrEmpty(Photo.Description))
+                {
+                    <MudText Typo="Typo.body1" Class="mb-4">@Photo.Description</MudText>
+                }
+
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Class="text-muted">分类</MudText>
+                        <MudChip T="string" Color="Color.Primary">@Photo.Category</MudChip>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Class="text-muted">拍摄日期</MudText>
+                        <MudText>@(Photo.TakenDate?.ToString("yyyy-MM-dd") ?? "未知")</MudText>
+                    </MudItem>
+                    @if (!string.IsNullOrEmpty(Photo.Location))
+                    {
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Class="text-muted">拍摄地点</MudText>
+                            <MudText>📍 @Photo.Location</MudText>
+                        </MudItem>
+                    }
+                    @if (!string.IsNullOrEmpty(Photo.PeopleTags))
+                    {
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Class="text-muted">人物</MudText>
+                            <div class="flex flex-wrap gap-1">
+                                @foreach (var tag in Photo.PeopleTags.Split(',').Where(t => !string.IsNullOrEmpty(t)))
+                                {
+                                    <MudChip T="string" Size="Size.Small">👤 @tag.Trim()</MudChip>
+                                }
+                            </div>
+                        </MudItem>
+                    }
+                    @if (!string.IsNullOrEmpty(Photo.SceneTags))
+                    {
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Class="text-muted">场景标签</MudText>
+                            <div class="flex flex-wrap gap-1">
+                                @foreach (var tag in Photo.SceneTags.Split(',').Where(t => !string.IsNullOrEmpty(t)))
+                                {
+                                    <MudChip T="string" Size="Size.Small">🏷️ @tag.Trim()</MudChip>
+                                }
+                            </div>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Color="Color.Primary" OnClick="Close">关闭</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public PhotoTimeline Photo { get; set; } = new();
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string GetPhotoUrl(string filePath)
+    {
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
+        if (filePath.StartsWith("http")) return filePath;
+        
+        var relativePath = filePath.Replace("./", "").Replace("\\", "/");
+        return $"/{relativePath}";
+    }
+
+    private void Close() => MudDialog.Close(DialogResult.Ok(Photo));
+}

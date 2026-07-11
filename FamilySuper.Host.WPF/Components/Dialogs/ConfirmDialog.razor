@@ -1,0 +1,40 @@
+@using MudBlazor
+<MudDialog>
+    <DialogContent>
+        <div class="d-flex align-center gap-3 mb-4">
+            <div class="dialog-icon">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Medium" />
+            </div>
+            <div>
+                <MudText Typo="Typo.h6" Class="font-bold">确认删除</MudText>
+                <MudText Typo="Typo.body2" Class="text-gray-500">@Message</MudText>
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Default" OnClick="Cancel">取消</MudButton>
+        <MudButton Color="Color.Error" OnClick="Confirm" Variant="Variant.Filled">确认删除</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public string Message { get; set; } = "确定要删除吗？此操作不可撤销。";
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private void Cancel() => MudDialog.Cancel();
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+}
+
+<style>
+    .dialog-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #fee2e2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #dc2626;
+    }
+</style>

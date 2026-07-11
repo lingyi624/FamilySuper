@@ -1,0 +1,194 @@
+@page "/purchase-advice"
+@using BudgetEntity = FamilySuper.Core.Entities.Budget
+@inject IShoppingService ShoppingSvc
+@inject IBudgetService BudgetSvc
+@inject IFinanceService FinanceSvc
+@inject IAgentService Agent
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h5" Class="mb-4">智能采购建议</MudText>
+    </MudItem>
+
+    <MudItem xs="12" md="8">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-2">AI 智能采购建议</MudText>
+                <MudText Typo="Typo.body2" Class="text-gray-500 mb-4">基于家庭消费习惯、预算状态和当前购物清单，AI 为您生成采购建议</MudText>
+                @if (loading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="my-4" />
+                }
+                else if (!string.IsNullOrWhiteSpace(aiAdvice))
+                {
+                    <MudPaper Class="pa-4 bg-gray-50 rounded-lg mb-4" Elevation="0">
+                        <MudText Typo="Typo.body2" Style="white-space: pre-wrap; line-height: 1.7;">@aiAdvice</MudText>
+                    </MudPaper>
+                }
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="GenerateAdvice" Disabled="@loading" StartIcon="@Icons.Material.Filled.AutoAwesome">
+                    @(loading ? "AI 分析中..." : "生成 AI 采购建议")
+                </MudButton>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" md="4">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">预算一览</MudText>
+                @if (budgetStatuses.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="text-gray-500">暂无预算数据</MudText>
+                }
+                else
+                {
+                    foreach (var (budget, status) in budgetStatuses)
+                    {
+                        <div class="mb-2">
+                            <div class="flex justify-between mb-1">
+                                <MudText Typo="Typo.caption">@budget.Category</MudText>
+                                <MudText Typo="Typo.caption" Class="@(status.Remaining < 0 ? "text-red-600" : "text-green-600")">
+                                    @(status.Remaining < 0 ? "超支" : $"剩余 ¥{status.Remaining:N0}")
+                                </MudText>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="h-2 rounded-full transition-all"
+                                     style="width: @(Math.Min((double)status.UsagePercent, 100))%; background-color: @((status.Remaining < 0 ? "#ef4444" : (status.UsagePercent >= 80 ? "#f59e0b" : "#22c55e")))"></div>
+                            </div>
+                        </div>
+                    }
+                }
+            </MudCardContent>
+        </MudCard>
+
+        <MudCard Elevation="2" Class="mt-4">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">常购商品</MudText>
+                @if (frequentItems.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="text-gray-500">暂无购买记录</MudText>
+                }
+                else
+                {
+                    foreach (var item in frequentItems)
+                    {
+                        <div class="flex justify-between items-center mb-2">
+                            <MudText Typo="Typo.body2">@item.Name</MudText>
+                            <MudChip Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" OnClick="() => QuickAdd(item.Name)" T="string">
+                                + 加入清单
+                            </MudChip>
+                        </div>
+                    }
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">消费分析</MudText>
+                <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                    <div>
+                        <MudText Typo="Typo.caption" Class="text-gray-500 mb-1">本月支出总计</MudText>
+                        <MudText Typo="Typo.h5" Class="text-red-600">¥@monthlyExpense.ToString("N2")</MudText>
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.caption" Class="text-gray-500 mb-1">最大支出类别</MudText>
+                        <MudText Typo="Typo.h5">@(topCategory == "" ? "无" : topCategory)</MudText>
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.caption" Class="text-gray-500 mb-1">待购清单</MudText>
+                        <MudText Typo="Typo.h5">@pendingCount 项</MudText>
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.caption" Class="text-gray-500 mb-1">预算健康度</MudText>
+                        <MudText Typo="Typo.h5" Class="@(budgetHealth switch { "良好" => "text-green-600", "超支" => "text-red-600", _ => "text-blue-600" })">@budgetHealth</MudText>
+                    </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private bool loading;
+    private string aiAdvice = "";
+    private List<(BudgetEntity Budget, BudgetStatus Status)> budgetStatuses = new();
+    private List<ShoppingItem> frequentItems = new();
+    private decimal monthlyExpense;
+    private string topCategory = "";
+    private int pendingCount;
+    private string budgetHealth = "未知";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var now = DateTime.UtcNow;
+        budgetStatuses = await BudgetSvc.GetMonthlyStatusAsync(now.Year, now.Month);
+        var summary = await FinanceSvc.GetSummaryAsync(new DateTime(now.Year, now.Month, 1), now);
+        monthlyExpense = summary.TotalExpense;
+
+        var records = await FinanceSvc.GetRecordsAsync(FinanceType.Expense);
+        topCategory = records
+            .Where(r => r.RecordDate >= new DateTime(now.Year, now.Month, 1))
+            .GroupBy(r => r.Category)
+            .OrderByDescending(g => g.Sum(r => r.Amount))
+            .FirstOrDefault()?.Key ?? "";
+
+        var items = await ShoppingSvc.GetItemsAsync();
+        pendingCount = items.Count(i => i.Status == ShoppingStatus.Pending);
+
+        var purchased = items.Where(i => i.Status == ShoppingStatus.Purchased)
+            .OrderByDescending(i => i.PurchasedDate)
+            .Take(10).ToList();
+        frequentItems = purchased;
+
+        if (budgetStatuses.Count > 0)
+        {
+            var maxUsage = budgetStatuses.Max(b => b.Status.UsagePercent);
+            budgetHealth = maxUsage >= 100 ? "超支" : maxUsage >= 80 ? "需关注" : "良好";
+        }
+    }
+
+    private async Task GenerateAdvice()
+    {
+        loading = true;
+        try
+        {
+            var now = DateTime.UtcNow;
+            var items = await ShoppingSvc.GetItemsAsync();
+            var pending = items.Where(i => i.Status == ShoppingStatus.Pending).ToList();
+            var budgetInfo = budgetStatuses.Select(b => $"{b.Budget.Category}:预算{b.Budget.Amount}/已用{b.Status.ActualExpense}").ToList();
+
+            var prompt = $@"当前是{now.Month}月，请基于以下信息给我家庭采购建议（控制在200字以内，简洁实用）：
+待购清单：{string.Join(", ", pending.Select(i => i.Name))}
+预算状态：{string.Join("; ", budgetInfo)}
+本月支出：¥{monthlyExpense}
+最大支出类别：{topCategory}
+
+请给出：1.采购优先级建议 2.预算控制提醒 3.替代或省钱建议";
+
+            aiAdvice = await Agent.ChatAsync(prompt, AppMode.Adult, new List<ChatMessage>());
+        }
+        catch (Exception ex)
+        {
+            aiAdvice = $"AI 分析暂时不可用：{ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task QuickAdd(string name)
+    {
+        await ShoppingSvc.AddAsync(new ShoppingItem
+        {
+            Name = name,
+            Status = ShoppingStatus.Pending,
+            Quantity = 1
+        });
+        var items = await ShoppingSvc.GetItemsAsync();
+        pendingCount = items.Count(i => i.Status == ShoppingStatus.Pending);
+    }
+}

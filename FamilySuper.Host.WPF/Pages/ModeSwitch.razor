@@ -1,217 +1,166 @@
 @page "/mode-switch"
 @inject Services.ModeStateContainer ModeState
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@using FamilySuper.Host.WPF.Components.Dialogs
 
-<div class="mode-switch-page">
-    <div class="switch-card">
-        <h2>模式切换</h2>
-        <p class="hint">切换模式需要管理员密码验证。两种模式拥有独立的数据视图。</p>
+<MudGrid Class="min-h-screen items-center justify-center p-4 bg-gray-50">
+    <MudItem xs="12" sm="10" md="8" lg="6">
+        <MudCard Elevation="8" Class="overflow-hidden" Style="padding:10px;">
+            <div class="bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 text-white p-8">
+                <div class="flex flex-col items-center gap-4">
+                    <MudText Typo="Typo.h6" Class="d-flex align-center gap-2">
+@*                         <MudIcon Icon="@Icons.Material.Filled.ChatBubble" Size="Size.Medium" Color="Color.Primary" />
+ *@                        <MudIcon Icon="@Icons.Material.Filled.SwitchAccount" Size="Size.Large" />
 
-        <div class="current-mode">
-            <span>当前模式:</span>
-            <strong class="mode-@ModeState.CurrentMode.ToString().ToLower()">
-                @(ModeState.CurrentMode == AppMode.Adult ? "大人模式" : "小孩模式")
-            </strong>
-        </div>
-
-        <div class="mode-options">
-            <button class="mode-btn @(ModeState.CurrentMode == AppMode.Adult ? "active" : "")"
-                    @onclick="() => RequestSwitch(AppMode.Adult)">
-                <span class="btn-icon">👨</span>
-                <span class="btn-title">大人模式</span>
-                <span class="btn-desc">完整功能 · 财务 · 工作 · 医疗</span>
-            </button>
-
-            <button class="mode-btn @(ModeState.CurrentMode == AppMode.Child ? "active" : "")"
-                    @onclick="() => RequestSwitch(AppMode.Child)">
-                <span class="btn-icon">🧒</span>
-                <span class="btn-title">小孩模式</span>
-                <span class="btn-desc">内容过滤 · 教育优先 · 屏蔽财务</span>
-            </button>
-        </div>
-
-        @if (showPasswordDialog)
-        {
-            <div class="dialog-overlay" @onclick="CancelSwitch">
-                <div class="dialog" @onclick:stopPropagation="true">
-                    <h3>验证管理员密码</h3>
-                    <p>即将切换到: @(pendingMode == AppMode.Adult ? "大人模式" : "小孩模式")</p>
-                    <input type="password" @bind="passwordInput" placeholder="请输入管理员密码"
-                           @onkeydown="HandleKeyDown" autofocus />
-                    @if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        <div class="error">@errorMessage</div>
-                    }
-                    <div class="dialog-actions">
-                        <button class="btn-cancel" @onclick="CancelSwitch">取消</button>
-                        <button class="btn-confirm" @onclick="ConfirmSwitch">确认切换</button>
-                    </div>
+                        <span>模式切换</span>
+ 
+                    </MudText>
+                    @* <div class="icon-circle">
+                        <MudIcon Icon="@Icons.Material.Filled.SwitchAccount" Size="Size.Large" /> 
+                    </div> *@
+                   <div class="text-center"> 
+@*                          <MudText Typo="Typo.h4" Class="font-bold">模式切换</MudText>
+ *@                        <MudText Typo="Typo.body2" Class="opacity-90 mt-2">切换模式需要管理员密码验证。两种模式拥有独立的数据视图。</MudText>
+                    </div>  
                 </div>
             </div>
-        }
 
-        @if (!string.IsNullOrEmpty(successMessage))
-        {
-            <div class="success">@successMessage</div>
-        }
-    </div>
-</div>
+            <MudCardContent Class="py-8 px-6">
+                <div class="text-center mb-8">
+                    <MudText Typo="Typo.body2" Class="text-gray-500 mb-3">当前模式</MudText> 
+                    <MudChip T="string" Color="@(ModeState.CurrentMode == AppMode.Adult ? Color.Success : Color.Warning)" Size="Size.Medium" Variant="Variant.Filled">
+                        <span class="text-lg">@(ModeState.CurrentMode == AppMode.Adult ? "👨 大人模式" : "🧒 小孩模式")</span>
+                    </MudChip>
+                </div>
+
+                <MudGrid Spacing="4">
+                    <MudItem xs="12" sm="6">
+                        <div Style="padding:10px;"
+                            @onclick="() => RequestSwitch(AppMode.Adult)"
+                            class="@(ModeState.CurrentMode == AppMode.Adult ? "mode-card active" : "mode-card")">
+                            <div class="py-6 text-center">
+                                <div class="@(ModeState.CurrentMode == AppMode.Adult ? "mode-icon active" : "mode-icon") mb-4">
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" />
+                                </div>
+                                <MudText Typo="Typo.body1" FontWeight="FontWeight.Bold" Class="mb-2">大人模式</MudText>
+                                <MudText Typo="Typo.caption" Class="text-gray-500 mb-4">完整功能 · 财务 · 工作 · 医疗</MudText>
+                                @if (ModeState.CurrentMode == AppMode.Adult)
+                                {
+                                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">
+                                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Class="mr-1" />
+                                        当前模式
+                                    </MudChip>
+                                }
+                            </div>
+                        </div>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <div Style="padding:10px;"
+                            @onclick="() => RequestSwitch(AppMode.Child)"
+                            class="@(ModeState.CurrentMode == AppMode.Child ? "mode-card active" : "mode-card")">
+                            <div class="py-6 text-center">
+                                <div class="@(ModeState.CurrentMode == AppMode.Child ? "mode-icon active" : "mode-icon") mb-4">
+                                    <MudIcon Icon="@Icons.Material.Filled.ChildCare" Size="Size.Large" />
+                                </div>
+                                <MudText Typo="Typo.body1" FontWeight="FontWeight.Bold" Class="mb-2">小孩模式</MudText>
+                                <MudText Typo="Typo.caption" Class="text-gray-500 mb-4">内容过滤 · 教育优先 · 屏蔽财务</MudText>
+                                @if (ModeState.CurrentMode == AppMode.Child)
+                                {
+                                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">
+                                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Class="mr-1" />
+                                        当前模式
+                                    </MudChip>
+                                }
+                            </div>
+                        </div>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
 @code {
-    private bool showPasswordDialog;
-    private AppMode pendingMode;
-    private string passwordInput = string.Empty;
-    private string errorMessage = string.Empty;
-    private string successMessage = string.Empty;
-
-    private void RequestSwitch(AppMode target)
+    private async Task RequestSwitch(AppMode target)
     {
         if (ModeState.CurrentMode == target)
         {
-            successMessage = "已是该模式";
+            Snackbar.Add("已是该模式", Severity.Info);
             return;
         }
 
-        pendingMode = target;
-        passwordInput = string.Empty;
-        errorMessage = string.Empty;
-        successMessage = string.Empty;
-        showPasswordDialog = true;
-    }
+        var parameters = new DialogParameters
+        {
+            ["TargetMode"] = target,
+            ["ModeName"] = target == AppMode.Adult ? "大人模式" : "小孩模式"
+        };
 
-    private async Task ConfirmSwitch()
-    {
-        if (string.IsNullOrWhiteSpace(passwordInput))
-        {
-            errorMessage = "请输入密码";
-            return;
-        }
+        var dialog = await DialogService.ShowAsync<PasswordDialog>("验证管理员密码", parameters);
+        var result = await dialog.Result;
 
-        var success = await ModeState.SwitchModeAsync(pendingMode, passwordInput);
-        if (success)
+        if (!result.Canceled && result.Data is string password)
         {
-            showPasswordDialog = false;
-            successMessage = $"已切换到 {(pendingMode == AppMode.Adult ? "大人" : "小孩")} 模式";
-        }
-        else
-        {
-            errorMessage = "密码验证失败,请重试";
-        }
-    }
-
-    private void CancelSwitch()
-    {
-        showPasswordDialog = false;
-        passwordInput = string.Empty;
-        errorMessage = string.Empty;
-    }
-
-    private async Task HandleKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            await ConfirmSwitch();
-        }
-        else if (e.Key == "Escape")
-        {
-            CancelSwitch();
+            var success = await ModeState.SwitchModeAsync(target, password);
+            if (success)
+            {
+                Snackbar.Add($"已切换到 {(target == AppMode.Adult ? "大人" : "小孩")} 模式", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("密码验证失败，请重试", Severity.Error);
+            }
         }
     }
 }
 
 <style>
-    .mode-switch-page { max-width: 720px; margin: 0 auto; }
-    .switch-card {
-        background: white;
-        padding: 32px;
-        border-radius: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    .switch-card h2 { margin: 0 0 8px; color: #333; }
-    .hint { color: #666; font-size: 14px; margin: 0 0 24px; }
-    .current-mode {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 16px;
-        background: #f5f5f7;
-        border-radius: 8px;
-        margin-bottom: 24px;
-        font-size: 14px;
-    }
-    .mode-adult { color: #2e7d32; }
-    .mode-child { color: #e65100; }
-    .mode-options {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-    }
-    .mode-btn {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        padding: 24px 16px;
-        border: 2px solid #e0e0e0;
-        border-radius: 12px;
-        background: white;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    .mode-btn:hover { border-color: #1976d2; background: #f6faff; }
-    .mode-btn.active { border-color: #1976d2; background: #e3f2fd; }
-    .btn-icon { font-size: 36px; }
-    .btn-title { font-size: 16px; font-weight: 600; color: #333; }
-    .btn-desc { font-size: 12px; color: #666; text-align: center; }
-    .dialog-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.5);
+    .icon-circle {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 1000;
+        backdrop-filter: blur(10px);
     }
-    .dialog {
-        background: white;
-        padding: 24px;
-        border-radius: 12px;
-        width: 360px;
-        box-shadow: 0 12px 32px rgba(0,0,0,0.2);
-    }
-    .dialog h3 { margin: 0 0 8px; color: #333; }
-    .dialog p { margin: 0 0 16px; color: #666; font-size: 14px; }
-    .dialog input {
-        width: 100%;
-        padding: 10px 12px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        font-size: 14px;
-        box-sizing: border-box;
-    }
-    .dialog input:focus { outline: none; border-color: #1976d2; }
-    .error { color: #c62828; font-size: 13px; margin-top: 8px; }
-    .dialog-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        margin-top: 16px;
-    }
-    .btn-cancel, .btn-confirm {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 6px;
+
+    .mode-card {
         cursor: pointer;
-        font-size: 14px;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
-    .btn-cancel { background: #f0f0f0; color: #555; }
-    .btn-confirm { background: #1976d2; color: white; }
-    .btn-confirm:hover { background: #1565c0; }
-    .success {
-        margin-top: 16px;
-        padding: 10px 14px;
-        background: #e8f5e9;
-        color: #2e7d32;
-        border-radius: 6px;
-        font-size: 14px;
+    .mode-card:hover {
+        transform: translateY(-4px);
+        border-color: #e0e7ff;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    .mode-card.active {
+        border-color: #6366f1;
+        background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+    }
+
+    .mode-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #f0f4f8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        color: #64748b;
+        transition: all 0.3s ease;
+    }
+    .mode-icon.active {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
     }
 </style>

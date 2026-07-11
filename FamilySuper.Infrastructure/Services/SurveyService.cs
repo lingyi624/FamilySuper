@@ -109,6 +109,42 @@ public class SurveyService : ISurveyService
         return new SurveyStatistic(responses.Count, distribution);
     }
 
+    public async Task<string> ExportCsvAsync(long surveyId, CancellationToken cancellationToken = default)
+    {
+        var survey = await _surveyRepo.GetByIdAsync(surveyId, cancellationToken);
+        var responses = await GetResponsesAsync(surveyId, cancellationToken);
+        var fields = ParseFields(survey?.FieldsJson);
+
+        var lines = new List<string>();
+        var header = string.Join(",", fields.Select(f => EscapeCsv(f.Label)));
+        lines.Add(header);
+
+        foreach (var resp in responses)
+        {
+            var values = ParseValues(resp.ValuesJson);
+            var row = fields.Select(f =>
+            {
+                if (values.TryGetValue(f.Name, out var val) && val.ValueKind != JsonValueKind.Null)
+                {
+                    if (val.ValueKind == JsonValueKind.Array)
+                        return EscapeCsv(string.Join(";", val.EnumerateArray().Select(v => v.GetString() ?? "")));
+                    return EscapeCsv(val.ToString());
+                }
+                return "";
+            });
+            lines.Add(string.Join(",", row));
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
     private static List<SurveyField> ParseFields(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return new List<SurveyField>();

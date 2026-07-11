@@ -1,0 +1,60 @@
+@using MudBlazor
+@using FamilySuper.Core.Entities
+
+<MudDialog>
+    <DialogContent>
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">@(Annotation.Id > 0 ? "编辑标注" : "添加标注")</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudForm Model="Annotation" @ref="_form" @bind-IsValid="_isFormValid">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudTextField Label="标注文字 *" @bind-Value="Annotation.Text" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="颜色" @bind-Value="Annotation.Color" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="图片路径" @bind-Value="Annotation.ImageUrl" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="关联记忆" @bind-Value="Annotation.MemoryText" Multiline="true" Rows="3" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudDatePicker Label="记忆日期" @bind-Date="Annotation.MemoryDate" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="相关媒体路径" @bind-Value="Annotation.RelatedMediaPath" />
+                        </MudItem>
+                    </MudGrid>
+                </MudForm>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                <MudButton Color="Color.Default" OnClick="Cancel">取消</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public Annotation Annotation { get; set; } = new();
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private MudForm _form = default!;
+    private bool _isFormValid;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        MudDialog.Close(DialogResult.Ok(Annotation));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

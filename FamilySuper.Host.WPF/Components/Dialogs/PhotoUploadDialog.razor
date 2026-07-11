@@ -1,0 +1,65 @@
+@using MudBlazor
+@using Microsoft.AspNetCore.Components.Forms
+
+<MudDialog>
+    <DialogContent>
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">上传照片</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.body1" Class="mb-4">选择要上传的照片，支持批量上传。建议上传10-50张从不同角度拍摄的照片。</MudText>
+                <div class="mb-4">
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Upload" OnClick="TriggerFileUpload">
+                        选择照片
+                    </MudButton>
+                    <InputFile id="photo-upload" class="d-none" multiple accept="image/*" OnChange="HandleFileSelected" />
+                </div>
+                @if (SelectedFiles.Count > 0)
+                {
+                    <div class="list-group">
+                        @foreach (var file in SelectedFiles)
+                        {
+                            <div class="list-group-item d-flex align-items-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Image" Color="Color.Primary" Class="mr-2" />
+                                <MudText Class="flex-grow-1">@file.Name</MudText>
+                                <MudText Typo="Typo.caption" Class="text-muted">@(file.Size / 1024) KB</MudText>
+                            </div>
+                        }
+                    </div>
+                }
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Color="Color.Primary" OnClick="Upload" Disabled="@(SelectedFiles.Count == 0)" Variant="Variant.Filled">上传</MudButton>
+                <MudButton Color="Color.Default" OnClick="Cancel">取消</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
+
+    public List<IBrowserFile> SelectedFiles { get; set; } = new();
+
+    private async Task TriggerFileUpload()
+    {
+        await JsRuntime.InvokeVoidAsync("document.getElementById('photo-upload').click()");
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        SelectedFiles = e.GetMultipleFiles(50).ToList();
+        StateHasChanged();
+    }
+
+    private void Upload()
+    {
+        MudDialog.Close(DialogResult.Ok(SelectedFiles));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

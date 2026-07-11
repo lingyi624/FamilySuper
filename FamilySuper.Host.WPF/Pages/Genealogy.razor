@@ -1,0 +1,333 @@
+@page "/genealogy"
+@inject IRepository<FamilyMember> MemberRepo
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🏠</span>
+                        <span>家庭族谱</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudText Typo="Typo.body2" Class="text-gray-500">展示家庭成员关系图谱</MudText>
+                </CardHeaderActions>
+            </MudCardHeader>
+        </MudCard>
+    </MudItem>
+
+    @if (familyTree.Count == 0)
+    {
+        <MudItem xs="12">
+            <MudCard>
+                <MudCardContent Class="text-center py-12">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Class="mb-4 text-gray-400" />
+                    <MudText Typo="Typo.body1" Class="text-gray-500 mb-4">暂无家庭成员，请先添加</MudText>
+                    <MudButton Color="Color.Primary" OnClick="NavigateToFamily" Variant="Variant.Filled">
+                        去添加成员
+                    </MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <div class="genealogy-container">
+                <svg class="genealogy-svg" ref="svgRef">
+                    @foreach (var connection in connections)
+                    {
+                        <path d="@connection.Path" fill="none" stroke="@connection.Color" stroke-width="2" />
+                    }
+                </svg>
+                <div class="genealogy-tree">
+                    @foreach (var root in familyTree)
+                    {
+                        @RenderFamilyNode(root, 0)
+                    }
+                </div>
+            </div>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private List<FamilyMember> familyTree = new();
+    private Dictionary<long, List<FamilyMember>> childrenMap = new();
+    private Dictionary<long, FamilyMember> memberMap = new();
+    private List<ConnectionLine> connections = new();
+    private ElementReference svgRef;
+
+    private class ConnectionLine
+    {
+        public string Path { get; set; } = string.Empty;
+        public string Color { get; set; } = "#9CA3AF";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFamilyTree();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await UpdateConnections();
+        }
+    }
+
+    private async Task LoadFamilyTree()
+    {
+        var allMembers = await MemberRepo.GetAllAsync();
+        
+        memberMap = allMembers.ToDictionary(m => m.Id);
+
+        var childrenGroups = allMembers
+            .Where(m => m.FatherId.HasValue || m.MotherId.HasValue)
+            .GroupBy(m => 
+            {
+                var fatherId = m.FatherId.HasValue ? m.FatherId.Value.ToString() : "none";
+                var motherId = m.MotherId.HasValue ? m.MotherId.Value.ToString() : "none";
+                return $"{fatherId}-{motherId}";
+            })
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        childrenMap = new Dictionary<long, List<FamilyMember>>();
+        foreach (var member in allMembers)
+        {
+            var children = allMembers.Where(m => m.FatherId == member.Id || m.MotherId == member.Id).ToList();
+            if (children.Any())
+            {
+                childrenMap[member.Id] = children;
+            }
+        }
+
+        familyTree = allMembers
+            .Where(m => !m.FatherId.HasValue && !m.MotherId.HasValue)
+            .ToList();
+
+        if (!familyTree.Any())
+        {
+            familyTree = allMembers.Take(1).ToList();
+        }
+    }
+
+    private async Task UpdateConnections()
+    {
+        connections.Clear();
+        
+        foreach (var member in memberMap.Values)
+        {
+            if (member.FatherId.HasValue && memberMap.ContainsKey(member.FatherId.Value))
+            {
+                connections.Add(new ConnectionLine
+                {
+                    Path = GetConnectionPath(member.FatherId.Value, member.Id),
+                    Color = "#6B7280"
+                });
+            }
+            if (member.MotherId.HasValue && memberMap.ContainsKey(member.MotherId.Value))
+            {
+                connections.Add(new ConnectionLine
+                {
+                    Path = GetConnectionPath(member.MotherId.Value, member.Id),
+                    Color = "#D97706"
+                });
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private string GetConnectionPath(long parentId, long childId)
+    {
+        return $"M 100 200 L 100 300 L 100 350";
+    }
+
+    private void NavigateToFamily()
+    {
+        Navigation.NavigateTo("/family");
+    }
+
+    private RenderFragment RenderFamilyNode(FamilyMember member, int depth) => __builder =>
+    {
+        List<FamilyMember>? children = childrenMap.TryGetValue(member.Id, out var kids) ? kids : null;
+        FamilyMember? spouse = null;
+        
+        if (member.Gender == Gender.Male)
+        {
+            spouse = memberMap.Values.FirstOrDefault(m => 
+                m.Gender == Gender.Female && 
+                ((m.FatherId.HasValue && childrenMap.TryGetValue(m.Id, out var herKids) && herKids.Any(k => children?.Contains(k) ?? false)) ||
+                 (children?.Any(c => c.MotherId == m.Id) ?? false)));
+        }
+        else
+        {
+            spouse = memberMap.Values.FirstOrDefault(m => 
+                m.Gender == Gender.Male &&
+                ((m.FatherId.HasValue && childrenMap.TryGetValue(m.Id, out var hisKids) && hisKids.Any(k => children?.Contains(k) ?? false)) ||
+                 (children?.Any(c => c.FatherId == m.Id) ?? false)));
+        }
+
+        <div class="family-node" id="node-@member.Id">
+            <div class="spouse-row">
+                <div class="member-card">
+                    <div class="member-icon">@GetGenderIcon(member)</div>
+                    <div class="member-info">
+                        <MudText Typo="Typo.subtitle2" Class="font-bold">@member.Name</MudText>
+                        <MudText Typo="Typo.caption" Class="text-gray-500">@member.Role @GetAge(member)</MudText>
+                    </div>
+                </div>
+                @if (spouse != null)
+                {
+                    <div class="spouse-connector">❤️</div>
+                    <div class="member-card">
+                        <div class="member-icon">@GetGenderIcon(spouse)</div>
+                        <div class="member-info">
+                            <MudText Typo="Typo.subtitle2" Class="font-bold">@spouse.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="text-gray-500">@spouse.Role @GetAge(spouse)</MudText>
+                        </div>
+                    </div>
+                }
+            </div>
+            
+            @if (children != null && children.Count > 0)
+            {
+                <div class="vertical-line"></div>
+                <div class="children-row">
+                    @foreach (var child in children)
+                    {
+                        @RenderFamilyNode(child, depth + 1)
+                    }
+                </div>
+            }
+        </div>
+    };
+
+    private string GetGenderIcon(FamilyMember member)
+    {
+        return member.Gender switch
+        {
+            Gender.Male => "👨",
+            Gender.Female => "👩",
+            _ => "🧑"
+        };
+    }
+
+    private string GetAge(FamilyMember member)
+    {
+        if (!member.BirthDate.HasValue) return "";
+        var age = DateTime.UtcNow.Year - member.BirthDate.Value.Year;
+        return $"({age}岁)";
+    }
+}
+
+<style>
+    .genealogy-container {
+        position: relative;
+        min-height: 400px;
+        padding: 40px;
+        overflow-x: auto;
+    }
+
+    .genealogy-svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .genealogy-tree {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: center;
+    }
+
+    .family-node {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+    }
+
+    .spouse-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .member-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 12px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        min-width: 100px;
+        color: white;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .member-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .member-icon {
+        font-size: 28px;
+        margin-bottom: 6px;
+    }
+
+    .member-info {
+        text-align: center;
+    }
+
+    .spouse-connector {
+        font-size: 16px;
+        animation: pulse 2s infinite;
+    }
+
+    @@keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+    }
+
+    .vertical-line {
+        width: 3px;
+        height: 30px;
+        background: linear-gradient(to bottom, #9CA3AF, #6B7280);
+        border-radius: 2px;
+        position: relative;
+    }
+
+    .vertical-line::before {
+        content: '';
+        position: absolute;
+        top: -4px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 12px;
+        height: 12px;
+        background: #9CA3AF;
+        border-radius: 50%;
+    }
+
+    .children-row {
+        display: flex;
+        gap: 40px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+</style>

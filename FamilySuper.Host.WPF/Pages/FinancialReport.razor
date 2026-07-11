@@ -1,0 +1,212 @@
+@page "/financial-report"
+@using System.Globalization
+@using BudgetEntity = FamilySuper.Core.Entities.Budget
+@inject IFinanceService FinanceSvc
+@inject IBudgetService BudgetSvc
+@inject IRepository<FamilyMember> MemberRepo
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h5" Class="mb-4">财务图表报告</MudText>
+    </MudItem>
+
+    <MudItem xs="12" sm="4">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Class="text-gray-500 mb-1">总收入</MudText>
+                <MudText Typo="Typo.h4" Class="text-green-600">¥@summary.TotalIncome.ToString("N2")</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="4">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Class="text-gray-500 mb-1">总支出</MudText>
+                <MudText Typo="Typo.h4" Class="text-red-600">¥@summary.TotalExpense.ToString("N2")</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="4">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Class="text-gray-500 mb-1">结余</MudText>
+                <MudText Typo="Typo.h4" Class="@(summary.Balance >= 0 ? "text-blue-600" : "text-red-600")">¥@summary.Balance.ToString("N2")</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">月度收支趋势</MudText>
+                <div class="chart-container">
+                    <svg viewBox="0 0 500 200" class="w-full">
+                        @((MarkupString)monthlyTrendChart)
+                    </svg>
+                </div>
+                <div class="flex justify-center gap-4 mt-2">
+                    <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-green-500"></div><MudText Typo="Typo.caption">收入</MudText></div>
+                    <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-red-500"></div><MudText Typo="Typo.caption">支出</MudText></div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">支出分类占比</MudText>
+                <div class="chart-container">
+                    <svg viewBox="0 0 300 200" class="w-full">
+                        @((MarkupString)categoryPieChart)
+                    </svg>
+                </div>
+                <div class="mt-3">
+                    @foreach (var cat in categoryBreakdown)
+                    {
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded" style="background-color: @GetCategoryColor(cat.Category)"></div>
+                                <MudText Typo="Typo.caption">@cat.Category</MudText>
+                            </div>
+                            <MudText Typo="Typo.caption">@cat.Percent.ToString("F0")%</MudText>
+                        </div>
+                    }
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">预算使用率</MudText>
+                @if (budgetStatuses.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="text-gray-500">暂无预算数据</MudText>
+                }
+                else
+                {
+                    <div class="grid gap-2">
+                        @foreach (var (budget, status) in budgetStatuses)
+                        {
+                            <div class="flex items-center gap-3">
+                                <MudText Typo="Typo.body2" Class="w-20">@budget.Category</MudText>
+                                <div class="flex-1 bg-gray-200 rounded-full h-3">
+                                    <div class="h-3 rounded-full transition-all"
+                                         style="width: @((double)status.UsagePercent)%; background-color: @GetProgressColorHex((double)status.UsagePercent, status.Remaining < 0)"></div>
+                                </div>
+                                <MudText Typo="Typo.body2" Class="w-24 text-right">¥@status.ActualExpense.ToString("N0") / ¥@status.BudgetAmount.ToString("N0")</MudText>
+                            </div>
+                        }
+                    </div>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private FinanceSummary summary = new(0, 0, 0, 0);
+    private List<(BudgetEntity Budget, BudgetStatus Status)> budgetStatuses = new();
+    private List<CategoryBreakdown> categoryBreakdown = new();
+    private List<FinanceRecord> records = new();
+    private string monthlyTrendChart = "";
+    private string categoryPieChart = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var startDate = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        summary = await FinanceSvc.GetSummaryAsync(startDate, DateTime.UtcNow);
+        records = await FinanceSvc.GetRecordsAsync();
+
+        var now = DateTime.UtcNow;
+        budgetStatuses = await BudgetSvc.GetMonthlyStatusAsync(now.Year, now.Month);
+
+        BuildCategoryBreakdown();
+        BuildMonthlyTrendChart();
+        BuildCategoryPieChart();
+    }
+
+    private void BuildCategoryBreakdown()
+    {
+        var expenses = records.Where(r => r.Type == FinanceType.Expense).ToList();
+        var total = expenses.Sum(r => r.Amount);
+        if (total == 0) return;
+
+        categoryBreakdown = expenses
+            .GroupBy(r => r.Category)
+            .Select(g => new CategoryBreakdown(g.Key, g.Sum(r => r.Amount), (double)(g.Sum(r => r.Amount) / total * 100)))
+            .OrderByDescending(c => c.Amount)
+            .Take(8)
+            .ToList();
+    }
+
+    private void BuildMonthlyTrendChart()
+    {
+        var months = Enumerable.Range(0, 6).Select(i => DateTime.UtcNow.AddMonths(-5 + i)).ToList();
+        var bars = new List<(string Label, decimal Income, decimal Expense, double IncomeH, double ExpenseH)>();
+
+        foreach (var month in months)
+        {
+            var monthStart = new DateTime(month.Year, month.Month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+            var income = records.Where(r => r.Type == FinanceType.Income && r.RecordDate >= monthStart && r.RecordDate <= monthEnd).Sum(r => r.Amount);
+            var expense = records.Where(r => r.Type == FinanceType.Expense && r.RecordDate >= monthStart && r.RecordDate <= monthEnd).Sum(r => r.Amount);
+            var maxVal = (double)Math.Max(income, expense);
+            var maxH = maxVal == 0 ? 0 : 150.0;
+            bars.Add((month.ToString("M月"), income, expense, maxVal == 0 ? 0 : (double)income / maxVal * 150.0, maxVal == 0 ? 0 : (double)expense / maxVal * 150.0));
+        }
+
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < bars.Count; i++)
+        {
+            var bar = bars[i];
+            var x = 40 + i * 80;
+            var incomeY = 170 - bar.IncomeH;
+            var expenseY = 170 - bar.ExpenseH;
+            sb.Append($"<rect x='{x}' y='{incomeY}' width='30' height='{bar.IncomeH}' fill='#22c55e' rx='2'/>");
+            sb.Append($"<rect x='{x + 35}' y='{expenseY}' width='30' height='{bar.ExpenseH}' fill='#ef4444' rx='2'/>");
+            sb.Append($"<text x='{x + 32}' y='190' text-anchor='middle' font-size='10' fill='#666'>{bar.Label}</text>");
+        }
+        monthlyTrendChart = sb.ToString();
+    }
+
+    private void BuildCategoryPieChart()
+    {
+        if (categoryBreakdown.Count == 0) return;
+        var total = categoryBreakdown.Sum(c => c.Amount);
+        var cx = 80; var cy = 100; var r = 70;
+        var colors = new[] { "#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16" };
+        double currentAngle = -90;
+
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < categoryBreakdown.Count; i++)
+        {
+            var cat = categoryBreakdown[i];
+            var sweepAngle = cat.Percent / 100.0 * 360.0;
+            var endAngle = currentAngle + sweepAngle;
+            var midAngle = (currentAngle + endAngle) / 2 * Math.PI / 180.0;
+            var x1 = cx + r * Math.Cos(currentAngle * Math.PI / 180.0);
+            var y1 = cy + r * Math.Sin(currentAngle * Math.PI / 180.0);
+            var x2 = cx + r * Math.Cos(endAngle * Math.PI / 180.0);
+            var y2 = cy + r * Math.Sin(endAngle * Math.PI / 180.0);
+            var largeArc = sweepAngle > 180 ? 1 : 0;
+            sb.Append($"<path d='M{cx},{cy} L{x1:F1},{y1:F1} A{r},{r} 0 {largeArc},1 {x2:F1},{y2:F1} Z' fill='{colors[i % colors.Length]}' opacity='0.85'/>");
+            currentAngle = endAngle;
+        }
+        categoryPieChart = sb.ToString();
+    }
+
+    private static string GetCategoryColor(string category) => category switch
+    {
+        "餐饮" => "#ef4444", "交通" => "#f59e0b", "购物" => "#22c55e",
+        "住房" => "#3b82f6", "教育" => "#8b5cf6", "医疗" => "#ec4899",
+        "娱乐" => "#06b6d4", "其他" => "#84cc16", _ => "#94a3b8"
+    };
+
+    private static string GetProgressColorHex(double percent, bool isOverBudget)
+        => isOverBudget ? "#ef4444" : percent >= 80 ? "#f59e0b" : "#22c55e";
+
+    private record CategoryBreakdown(string Category, decimal Amount, double Percent);
+}

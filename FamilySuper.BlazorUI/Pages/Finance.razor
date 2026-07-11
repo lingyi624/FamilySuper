@@ -42,7 +42,7 @@
                         <td><span class="tag @(r.Type == FinanceType.Income ? "tag-green" : "tag-red")">@r.Type</span></td>
                         <td class="@(r.Type == FinanceType.Income ? "text-green" : "text-red")">¥@r.Amount.ToString("N2")</td>
                         <td>@(r.Category ?? "-")</td>
-                        <td>@r.RecordDate.ToString("yyyy-MM-dd")</td>
+                        <td>@(r.RecordDate?.ToString("yyyy-MM-dd") ?? "-")</td>
                         <td class="actions">
                             <button class="btn btn-sm" @onclick="() => StartEdit(r)">编辑</button>
                             <button class="btn btn-sm btn-danger" @onclick="() => Delete(r.Id)">删除</button>

@@ -38,8 +38,22 @@ public class Repository<T> : IRepository<T> where T : class
 
     public Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
-        Set.Update(entity);
+        var existing = Context.Find<T>(GetKeyValue(entity));
+        if (existing is not null)
+        {
+            Context.Entry(existing).CurrentValues.SetValues(entity);
+        }
+        else
+        {
+            Context.Entry(entity).State = EntityState.Modified;
+        }
         return Task.CompletedTask;
+    }
+
+    private object? GetKeyValue(T entity)
+    {
+        var key = Context.Model.FindEntityType(typeof(T))?.FindPrimaryKey()?.Properties.FirstOrDefault();
+        return key?.GetGetter().GetClrValue(entity);
     }
 
     public Task DeleteAsync(T entity, CancellationToken cancellationToken = default)

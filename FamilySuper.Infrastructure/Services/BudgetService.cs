@@ -67,7 +67,7 @@ public class BudgetService : IBudgetService
 
         var records = await _financeRepo.GetAllAsync(cancellationToken);
         var monthExpenses = records
-            .Where(r => r.Type == FinanceType.Expense && r.RecordDate.Year == year && r.RecordDate.Month == month)
+            .Where(r => r.Type == FinanceType.Expense && r.RecordDate.HasValue && r.RecordDate.Value.Year == year && r.RecordDate.Value.Month == month)
             .ToList();
 
         var result = new List<(Budget, BudgetStatus)>();

@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>家庭超级管家</title>
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <style>
         * { box-sizing: border-box; }
         html, body {
@@ -56,6 +60,7 @@
     </div>
 
     <script src="_framework/blazor.webview.js"></script>
+    <script src="three-viewer.js"></script>
     <script>
         window.downloadFile = function (fileName, byteArray) {
             const blob = new Blob([new Uint8Array(byteArray)]);

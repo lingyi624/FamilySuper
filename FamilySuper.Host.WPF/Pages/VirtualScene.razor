@@ -1,0 +1,186 @@
+@page "/virtual-scene"
+@using FamilySuper.Host.WPF.Components.Dialogs
+@using FamilySuper.Core.Entities
+@using FamilySuper.Host.WPF.Components
+
+<MudGrid Class="h-full">
+    <MudItem xs="12" sm="3" Class="h-full overflow-hidden">
+        <MudCard Class="h-full">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🏞️</span>
+                        <span>场景管理</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAdd" Variant="Variant.Filled" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加场景
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent Class="p-2">
+                <MudSelect Label="场景类型" @bind-Value="filterType" T="string?" Placeholder="全部" OnChange="LoadScenes" Dense="true" Class="mb-2">
+                    <MudSelectItem T="string?" Value="null">全部</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("家乡")">家乡</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("旅游")">旅游</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("故居")">故居</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("地标")">地标</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("其他")">其他</MudSelectItem>
+                </MudSelect>
+
+                <div class="scene-list" style="height: calc(100vh - 250px); overflow-y: auto;">
+                    @foreach (var scene in scenes)
+                    {
+                        <MudCard Class="mb-2 cursor-pointer" Elevation="@(selectedScene?.Id == scene.Id ? 4 : 1)"
+                                 @onclick="() => SelectScene(scene)">
+                            <MudCardContent Class="p-3">
+                                <div class="d-flex justify-between align-start">
+                                    <div>
+                                        <MudText FontWeight="FontWeight.Bold">@scene.Title</MudText>
+                                        <MudText Typo="Typo.caption" Class="text-muted">@scene.Location</MudText>
+                                    </div>
+                                    <MudChip T="string" Color="@GetSceneTypeColor(scene.SceneType)" Size="Size.Small">@scene.SceneType</MudChip>
+                                </div>
+                                <div class="mt-2">
+                                    @if (!string.IsNullOrEmpty(scene.ModelPath))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Class="mr-1" Color="Color.Primary">3D模型</MudChip>
+                                    }
+                                    @if (!string.IsNullOrEmpty(scene.PanoramaPath))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Class="mr-1" Color="Color.Info">全景</MudChip>
+                                    }
+                                    @if (scene.PhotoCount > 0)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Class="mr-1" Color="Color.Warning">📷 @scene.PhotoCount 张</MudChip>
+                                    }
+                                    @if (!string.IsNullOrEmpty(scene.ReconstructionStatus))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Class="mr-1" Color="@GetReconstructionStatusColor(scene.ReconstructionStatus)">@GetReconstructionStatusText(scene.ReconstructionStatus)</MudChip>
+                                    }
+                                </div>
+                                <div class="mt-2 d-flex gap-1">
+                                    <MudButton Color="Color.Default" Size="Size.Small" OnClick="() => StartEdit(scene)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                    </MudButton>
+                                    <MudButton Color="Color.Error" Size="Size.Small" OnClick="() => Delete(scene.Id)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
+                                    </MudButton>
+                                </div>
+                            </MudCardContent>
+                        </MudCard>
+                    }
+                    @if (scenes.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info" Elevation="0" Class="mt-4">暂无场景记录</MudAlert>
+                    }
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" Class="h-full overflow-hidden">
+        <MudCard Class="h-full">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🎯</span>
+                        <span>3D场景查看器</span>
+                        @if (selectedScene != null)
+                        {
+                            <MudText Typo="Typo.body2" Class="text-muted ml-auto">@selectedScene.Title</MudText>
+                        }
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="ShowAnnotationForm" Disabled="@(selectedScene == null || string.IsNullOrEmpty(selectedScene.ModelPath))" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.AddLocation" Class="mr-1" />
+                        添加标注
+                    </MudButton>
+                    <MudButton Color="Color.Default" OnClick="ReloadModel" Disabled="@(selectedScene == null || string.IsNullOrEmpty(selectedScene.ModelPath))" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.Refresh" Class="mr-1" />
+                        刷新模型
+                    </MudButton>
+                    <MudButton Color="Color.Warning" OnClick="ShowUploadDialog" Disabled="@(selectedScene == null)" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.Upload" Class="mr-1" />
+                        上传照片
+                    </MudButton>
+                    <MudButton Color="Color.Success" OnClick="StartReconstruction" Disabled="@(selectedScene == null || selectedScene.PhotoCount == 0 || selectedScene.ReconstructionStatus == "processing")" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.Build" Class="mr-1" />
+                        重建模型
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent Class="p-0" style="height: calc(100vh - 160px);">
+                <SceneViewer @ref="sceneViewer"
+                             ModelPath="@ModelPath"
+                             Annotations="@annotations"
+                             OnAnnotationClick="HandleAnnotationClick"
+                             OnModelLoaded="HandleModelLoaded" />
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="3" Class="h-full overflow-hidden">
+        <MudCard Class="h-full">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>📌</span>
+                        <span>标注列表</span>
+                        @if (annotations.Count > 0)
+                        {
+                            <MudBadge Color="Color.Secondary">@annotations.Count</MudBadge>
+                        }
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent Class="p-2">
+                @if (selectedScene == null)
+                {
+                    <MudAlert Severity="Severity.Info" Elevation="0" Class="mt-2">请先选择一个场景</MudAlert>
+                }
+                else if (annotations.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Elevation="0" Class="mt-2">暂无标注记录</MudAlert>
+                }
+                else
+                {
+                    <div class="annotation-list" style="height: calc(100vh - 200px); overflow-y: auto;">
+                        @foreach (var annotation in annotations.OrderByDescending(a => a.CreatedAt))
+                        {
+                            <MudCard Class="mb-2">
+                                <MudCardContent Class="p-3">
+                                    <div class="d-flex justify-between align-start">
+                                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: @annotation.Color; margin-right: 8px;"></div>
+                                        <div style="flex: 1;">
+                                            <MudText FontWeight="FontWeight.SemiBold">@annotation.Text</MudText>
+                                            @if (!string.IsNullOrEmpty(annotation.MemoryText))
+                                            {
+                                                <MudText Typo="Typo.caption" Class="text-muted">@annotation.MemoryText.Substring(0, Math.Min(30, annotation.MemoryText.Length))@(annotation.MemoryText.Length > 30 ? "..." : "")</MudText>
+                                            }
+                                            @if (annotation.MemoryDate.HasValue)
+                                            {
+                                                <MudText Typo="Typo.caption" Class="text-muted mt-1 d-block">📅 @annotation.MemoryDate.Value.ToString("yyyy-MM-dd")</MudText>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 d-flex gap-1 justify-end">
+                                        <MudButton Color="Color.Default" Size="Size.Small" OnClick="() => EditAnnotation(annotation)">
+                                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                        </MudButton>
+                                        <MudButton Color="Color.Error" Size="Size.Small" OnClick="() => DeleteAnnotation(annotation.Id)">
+                                            <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
+                                        </MudButton>
+                                    </div>
+                                </MudCardContent>
+                            </MudCard>
+                        }
+                    </div>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>

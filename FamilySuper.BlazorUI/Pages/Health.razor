@@ -37,7 +37,7 @@
                     <tr>
                         <td>@r.Title</td>
                         <td><span class="tag">@r.RecordType</span></td>
-                        <td>@r.RecordDate.ToString("yyyy-MM-dd")</td>
+                        <td>@(r.RecordDate?.ToString("yyyy-MM-dd") ?? "-")</td>
                         <td>@(r.Hospital ?? "-")</td>
                         <td>@(r.Doctor ?? "-")</td>
                         <td class="actions">

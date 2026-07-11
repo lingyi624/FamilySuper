@@ -1,0 +1,136 @@
+@page "/photo-timeline"
+@using FamilySuper.Core.Entities
+@using FamilySuper.Host.WPF.Components.Dialogs
+
+<MudGrid Class="h-full">
+    <MudItem xs="12" sm="2" Class="h-full overflow-hidden">
+        <MudCard Class="h-full">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>📅</span>
+                        <span>时间墙</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAdd" Variant="Variant.Filled" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加照片
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent Class="p-2">
+                <MudText Typo="Typo.body2" Class="mb-3">年份</MudText>
+                <div class="year-list">
+                    @foreach (var year in sortedYears)
+                    {
+                        <MudButton 
+                            Color="@(selectedYear == year ? Color.Primary : Color.Default)" 
+                            Variant="@(selectedYear == year ? Variant.Filled : Variant.Text)" 
+                            Class="w-full justify-start mb-1"
+                            OnClick="() => SelectYear(year)">
+                            @year (@yearStats.ContainsKey(year) ? yearStats[year] : 0)
+                        </MudButton>
+                    }
+                </div>
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.body2" Class="mb-3">分类</MudText>
+                <div class="category-list">
+                    <MudButton 
+                        Color="@(selectedCategory == null ? Color.Primary : Color.Default)" 
+                        Variant="@(selectedCategory == null ? Variant.Filled : Variant.Text)" 
+                        Class="w-full justify-start mb-1"
+                        OnClick="() => SelectCategory(null)">
+                        全部
+                    </MudButton>
+                    @foreach (var category in categories)
+                    {
+                        <MudButton 
+                            Color="@(selectedCategory == category ? Color.Primary : Color.Default)" 
+                            Variant="@(selectedCategory == category ? Variant.Filled : Variant.Text)" 
+                            Class="w-full justify-start mb-1"
+                            OnClick="() => SelectCategory(category)">
+                            @category
+                        </MudButton>
+                    }
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="10" Class="h-full overflow-hidden">
+        <MudCard Class="h-full">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>📷</span>
+                        <span>家庭照片时间墙</span>
+                        @if (photos.Count > 0)
+                        {
+                            <MudBadge Color="Color.Secondary">@photos.Count 张</MudBadge>
+                        }
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent Class="p-4" style="height: calc(100vh - 100px); overflow-y: auto;">
+                @if (photos.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Elevation="0" Class="mt-8">暂无照片记录</MudAlert>
+                }
+                else
+                {
+                    @foreach (var yearGroup in photosGroupedByYear)
+                    {
+                        <div class="year-section mb-8">
+                            <div class="year-header d-flex align-items-center mb-4">
+                                <MudChip T="string" Color="Color.Primary" Size="Size.Medium" Class="mr-2">
+                                    📅 @yearGroup.Key
+                                </MudChip>
+                                <MudText Typo="Typo.body2" Class="text-muted">共 @yearGroup.Count() 张照片</MudText>
+                            </div>
+
+                            @foreach (var monthGroup in yearGroup.GroupBy(p => (p.TakenDate ?? p.CreatedAt).Month)
+                                .OrderByDescending(g => g.Key))
+                            {
+                                <div class="month-section mb-6">
+                                    <MudText Typo="Typo.subtitle2" Class="mb-3 text-muted">@monthGroup.Key 月</MudText>
+                                    <MudGrid>
+                                        @foreach (var photo in monthGroup)
+                                        {
+                                            <MudItem xs="6" sm="4" md="3" lg="2" Class="mb-3">
+                                                <MudCard Class="cursor-pointer hover:elevation-4" Elevation="1"
+                                                         @onclick="() => ShowPhotoDetail(photo)">
+                                                    <MudCardMedia Style="height: 160px; overflow: hidden;">
+                                                        <img src="@GetPhotoUrl(photo.FilePath)" 
+                                                             alt="@photo.Title" 
+                                                             class="w-full h-full object-cover" />
+                                                    </MudCardMedia>
+                                                    <MudCardContent Class="p-2">
+                                                        <MudText Typo="Typo.body2" Class="truncate">@photo.Title</MudText>
+                                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                                            @(photo.TakenDate?.ToString("yyyy-MM-dd") ?? photo.CreatedAt.ToString("yyyy-MM-dd"))
+                                                        </MudText>
+                                                    </MudCardContent>
+                                                    <MudCardActions Class="p-2 justify-end">
+                                                        <MudButton Size="Size.Small" Color="Color.Default" OnClick="() => StartEdit(photo)">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                                        </MudButton>
+                                                        <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => Delete(photo.Id)">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
+                                                        </MudButton>
+                                                    </MudCardActions>
+                                                </MudCard>
+                                            </MudItem>
+                                        }
+                                    </MudGrid>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>

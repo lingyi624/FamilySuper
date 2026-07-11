@@ -1,0 +1,94 @@
+@using MudBlazor
+@using FamilySuper.Core.Entities
+@using Microsoft.AspNetCore.Components.Forms
+
+<MudDialog>
+    <DialogContent>
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">@(Photo.Id > 0 ? "编辑照片" : "添加照片")</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudForm Model="Photo" @ref="_form" @bind-IsValid="_isFormValid">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudTextField Label="照片标题 *" @bind-Value="Photo.Title" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="照片路径" @bind-Value="Photo.FilePath" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <div>
+                                <MudText Typo="Typo.body2" Class="mb-2">上传照片</MudText>
+                                <InputFile id="photo-file" accept="image/*" OnChange="HandleFileSelected" />
+                            </div>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="描述" @bind-Value="Photo.Description" Multiline="true" Rows="3" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect Label="分类" @bind-Value="Photo.Category" T="string">
+                                <MudSelectItem T="string" Value="@("家庭")">家庭</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("旅游")">旅游</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("纪念日")">纪念日</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("生活")">生活</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("其他")">其他</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudDatePicker Label="拍摄日期" @bind-Date="Photo.TakenDate" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="拍摄地点" @bind-Value="Photo.Location" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="人物标签" @bind-Value="Photo.PeopleTags" Placeholder="逗号分隔" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="场景标签" @bind-Value="Photo.SceneTags" Placeholder="逗号分隔" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudCheckBox @bind-Value="Photo.IsCover" Label="设为封面" />
+                        </MudItem>
+                    </MudGrid>
+                </MudForm>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                <MudButton Color="Color.Default" OnClick="Cancel">取消</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public PhotoTimeline Photo { get; set; } = new();
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private MudForm _form = default!;
+    private bool _isFormValid;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        MudDialog.Close(DialogResult.Ok(Photo));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.Name)}";
+            Photo.FilePath = $"./data/photos/{fileName}";
+            Photo.FileSize = file.Size;
+            StateHasChanged();
+        }
+    }
+}

@@ -31,12 +31,17 @@ public class MedicationReminderWorker : BackgroundService
             try
             {
                 await CheckRemindersAsync(stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "用药提醒检查失败");
+                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
             }
-            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
         }
     }
 

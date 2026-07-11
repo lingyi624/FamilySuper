@@ -1,0 +1,101 @@
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div @ref="viewerContainer" id="@_containerId" class="scene-viewer-container">
+    @if (string.IsNullOrEmpty(ModelPath))
+    {
+        <div class="viewer-placeholder">
+            <MudIcon Icon="@Icons.Material.Filled.ViewInAr" Size="Size.Large" Color="Color.Default" />
+            <MudText Typo="Typo.body1" Class="mt-2 text-muted">请选择一个场景查看3D模型</MudText>
+        </div>
+    }
+</div>
+
+@code {
+    private ElementReference viewerContainer;
+    private string _containerId = $"scene-viewer-{Guid.NewGuid():N}";
+    private bool _isInitialized;
+
+    [Parameter]
+    public string? ModelPath { get; set; }
+
+    [Parameter]
+    public EventCallback<AnnotationPosition> OnAnnotationClick { get; set; }
+
+    [Parameter]
+    public EventCallback<ModelInfo> OnModelLoaded { get; set; }
+
+    [Parameter]
+    public List<Annotation> Annotations { get; set; } = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitViewer();
+        }
+        else if (!string.IsNullOrEmpty(ModelPath) && _isInitialized)
+        {
+            await LoadModel(ModelPath);
+            await LoadAnnotations();
+        }
+    }
+
+    private async Task InitViewer()
+    {
+        await JS.InvokeVoidAsync("VirtualSceneViewer.init", _containerId);
+        await JS.InvokeVoidAsync("VirtualSceneViewer.setOnAnnotationClick", DotNetObjectReference.Create(this));
+        await JS.InvokeVoidAsync("VirtualSceneViewer.setOnModelLoaded", DotNetObjectReference.Create(this));
+        _isInitialized = true;
+    }
+
+    private async Task LoadModel(string modelPath)
+    {
+        await JS.InvokeVoidAsync("VirtualSceneViewer.clearAnnotations");
+        await JS.InvokeVoidAsync("VirtualSceneViewer.loadModel", modelPath);
+    }
+
+    private async Task LoadAnnotations()
+    {
+        await JS.InvokeVoidAsync("VirtualSceneViewer.clearAnnotations");
+        foreach (var annotation in Annotations)
+        {
+            await JS.InvokeVoidAsync("VirtualSceneViewer.addAnnotation",
+                annotation.Id,
+                new { x = annotation.PositionX, y = annotation.PositionY, z = annotation.PositionZ },
+                annotation.Text,
+                annotation.Color);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnAnnotationClickCallback(AnnotationPosition position)
+    {
+        await OnAnnotationClick.InvokeAsync(position);
+    }
+
+    [JSInvokable]
+    public async Task OnModelLoadedCallback(ModelInfo info)
+    {
+        await OnModelLoaded.InvokeAsync(info);
+    }
+
+    public async Task AddAnnotation(Annotation annotation)
+    {
+        await JS.InvokeVoidAsync("VirtualSceneViewer.addAnnotation",
+            annotation.Id,
+            new { x = annotation.PositionX, y = annotation.PositionY, z = annotation.PositionZ },
+            annotation.Text,
+            annotation.Color);
+    }
+
+    public async Task RemoveAnnotation(long id)
+    {
+        await JS.InvokeVoidAsync("VirtualSceneViewer.removeAnnotation", id);
+    }
+
+    public void Dispose()
+    {
+        JS.InvokeVoidAsync("VirtualSceneViewer.dispose");
+    }
+}

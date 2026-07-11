@@ -1,0 +1,78 @@
+@using MudBlazor
+@using FamilySuper.Core.Entities
+
+<MudDialog>
+    <DialogContent>
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">@(Scene.Id > 0 ? "编辑场景" : "添加场景")</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudForm Model="Scene" @ref="_form" @bind-IsValid="_isFormValid">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="标题 *" @bind-Value="Scene.Title" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="地点 *" @bind-Value="Scene.Location" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect Label="场景类型" @bind-Value="Scene.SceneType" T="string">
+                                <MudSelectItem T="string" Value="@("家乡")">家乡</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("旅游")">旅游</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("故居")">故居</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("地标")">地标</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("其他")">其他</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField Label="纬度" @bind-Value="Scene.Latitude" T="double?" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField Label="经度" @bind-Value="Scene.Longitude" T="double?" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="图片路径" @bind-Value="Scene.ImagePaths" Placeholder="JSON数组格式" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="全景图路径" @bind-Value="Scene.PanoramaPath" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="3D模型路径" @bind-Value="Scene.ModelPath" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="描述" @bind-Value="Scene.Description" Multiline="true" Rows="3" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="备注" @bind-Value="Scene.Notes" Multiline="true" Rows="2" />
+                        </MudItem>
+                    </MudGrid>
+                </MudForm>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                <MudButton Color="Color.Default" OnClick="Cancel">取消</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public VirtualScene Scene { get; set; } = new();
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private MudForm _form = default!;
+    private bool _isFormValid;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        MudDialog.Close(DialogResult.Ok(Scene));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

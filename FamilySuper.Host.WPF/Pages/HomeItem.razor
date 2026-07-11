@@ -1,0 +1,145 @@
+@page "/home-items"
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🏠</span>
+                        <span>家庭物品管理</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAdd" Variant="Variant.Filled">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加物品
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4">
+                        <MudSelect Label="分类" @bind-Value="filterCategory" T="string?" Placeholder="全部" OnChange="LoadItems">
+                            <MudSelectItem T="string?" Value="null">全部</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("家具")">家具</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("家电")">家电</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("数码")">数码</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("衣物")">衣物</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("书籍")">书籍</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("其他")">其他</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudSelect Label="状态" @bind-Value="filterStatus" T="string?" Placeholder="全部" OnChange="LoadItems">
+                            <MudSelectItem T="string?" Value="null">全部</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("正常")">正常</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("维修中")">维修中</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("已报废")">已报废</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+
+                <MudTable Items="items" Hover="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>名称</MudTh>
+                        <MudTh>分类</MudTh>
+                        <MudTh>位置</MudTh>
+                        <MudTh>数量</MudTh>
+                        <MudTh>价格</MudTh>
+                        <MudTh>状态</MudTh>
+                        <MudTh>操作</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd><MudText FontWeight="FontWeight.Bold">@context.Name</MudText></MudTd>
+                        <MudTd>@context.Category</MudTd>
+                        <MudTd>@(context.Location ?? "-")</MudTd>
+                        <MudTd>@context.Quantity</MudTd>
+                        <MudTd>@(context.Price?.ToString("N2") ?? "-")</MudTd>
+                        <MudTd>
+                            <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <MudButtonGroup Size="Size.Small">
+                                <MudButton Color="Color.Info" OnClick="() => StartEdit(context)">
+                                    <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                                </MudButton>
+                                <MudButton Color="Color.Error" OnClick="() => Delete(context.Id)">
+                                    <MudIcon Icon="@Icons.Material.Filled.Delete" />
+                                </MudButton>
+                            </MudButtonGroup>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudAlert Severity="Severity.Info" Elevation="0">暂无物品记录</MudAlert>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    @if (showForm)
+    {
+        <MudItem xs="12" Class="mt-4">
+            <MudCard Elevation="4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(editing.Id > 0 ? "编辑物品" : "添加物品")</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm Model="editing" @ref="_form" @bind-IsValid="_isFormValid">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="名称 *" @bind-Value="editing.Name" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="分类" @bind-Value="editing.Category" T="string">
+                                    <MudSelectItem T="string" Value="@("家具")">家具</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("家电")">家电</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("数码")">数码</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("衣物")">衣物</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("书籍")">书籍</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("其他")">其他</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="位置" @bind-Value="editing.Location" Placeholder="客厅/卧室/厨房" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="数量" @bind-Value="editing.Quantity" Min="1" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="购买价格" @bind-Value="editing.Price" T="decimal?" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="品牌/型号" @bind-Value="editing.Brand" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker Label="购买日期" @bind-Date="editing.PurchaseDate" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker Label="保修到期" @bind-Date="editing.WarrantyExpiry" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="状态" @bind-Value="editing.Status" T="string">
+                                    <MudSelectItem T="string" Value="@("正常")">正常</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("维修中")">维修中</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("已报废")">已报废</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="备注" @bind-Value="editing.Notes" Multiline="true" Rows="2" />
+                            </MudItem>
+                        </MudGrid>
+                        <div class="mt-4">
+                            <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                            <MudButton Color="Color.Default" OnClick="CancelForm" Class="ml-2">取消</MudButton>
+                        </div>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+

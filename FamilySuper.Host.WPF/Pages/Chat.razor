@@ -2,97 +2,186 @@
 @inject IAgentService Agent
 @inject IConversationService ConversationSvc
 @inject Services.ModeStateContainer ModeState
+@inject ISnackbar Snackbar
+@implements IDisposable
 
-<div class="chat-page">
-    <div class="chat-sidebar">
-        <div class="sidebar-header">
-            <h3>💬 对话历史</h3>
-            <button class="btn-new" @onclick="NewSession">+ 新建</button>
-        </div>
-        <div class="session-list">
-            @foreach (var s in sessions)
-            {
-                <div class="session-item @(currentSessionId == s.Id ? "active" : "")" @onclick="() => SelectSession(s.Id)">
-                    <div class="session-title">@s.Title</div>
-                    <div class="session-meta">
-                        <span>@s.MessageCount 条</span>
-                        <span>@s.LastMessageAt.ToString("MM-dd HH:mm")</span>
-                    </div>
-                    <button class="btn-del" @onclick="() => DeleteSession(s.Id)" @onclick:stopPropagation="true">✕</button>
+<MudGrid Class="h-full" Spacing="0">
+    <MudItem xs="12" md="3" Class="p-2" >
+        <MudCard Class="h-full overflow-hidden" Elevation="0" Style="margin:5px;">
+            <MudCardHeader Class="pb-2 px-4">
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6" Class="d-flex align-center gap-2">
+                        <MudIcon Icon="@Icons.Material.Filled.ChatBubble" Size="Size.Medium" Color="Color.Primary" />
+                        <span>对话历史</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Size="Size.Small" Color="Color.Primary" OnClick="NewSession" Variant="Variant.Filled" Class="rounded-full">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" />
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent Class="p-2 overflow-y-auto flex-1" Style="height: calc(100vh - 160px);">
+                <div class="session-list">
+                    @foreach (var s in sessions)
+                    {
+                        <MudCard 
+                            Elevation="@(currentSessionId == s.Id ? 2 : 0)"
+                            Class="@(currentSessionId == s.Id ? "session-card active" : "session-card")"
+                            OnClick="() => SelectSession(s.Id)"
+                            Style="cursor: pointer;">
+                            <MudCardContent Class="py-3 px-3">
+                                <div class="d-flex align-center gap-3">
+                                    <div class="@(currentSessionId == s.Id ? "session-avatar active" : "session-avatar")">
+                                        <MudIcon Icon="@Icons.Material.Filled.Message" Size="Size.Small" />
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <MudText Typo="Typo.body2" Class="font-medium truncate">@s.Title</MudText>
+                                        <MudText Typo="Typo.caption" Class="text-gray-500">
+                                            @s.MessageCount 条 · @s.LastMessageAt.ToString("MM-dd HH:mm")
+                                        </MudText>
+                                    </div>
+                                    <MudButton Size="Size.Small" Color="Color.Default" OnClick="() => DeleteSession(s.Id)" OnClick:stopPropagation="true" Class="opacity-0 hover:opacity-100 transition-opacity" Style="padding: 4px;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                                    </MudButton>
+                                </div>
+                            </MudCardContent>
+                        </MudCard>
+                    }
+                    @if (sessions.Count == 0)
+                    {
+                        <div class="empty-state text-center py-12">
+                            <MudIcon Icon="@Icons.Material.Filled.Message" Size="Size.Large" Class="text-gray-300 mb-3" />
+                            <MudText Typo="Typo.body2" Class="text-gray-400">暂无历史会话</MudText>
+                        </div>
+                    }
                 </div>
-            }
-            @if (sessions.Count == 0)
-            {
-                <div class="empty-sessions">暂无历史会话</div>
-            }
-        </div>
-    </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 
-    <div class="chat-main">
-        <div class="chat-header">
-            <h2>智能对话</h2>
-            <div class="status @(Agent.IsAvailable ? "ok" : "warn")">
-                @(Agent.IsAvailable ? "DeepSeek V4 Pro 已连接" : "Mock 模式")
-            </div>
-        </div>
-
-        <div class="chat-window">
-            @if (messages.Count == 0)
-            {
-                <div class="empty-state">
-                    <div class="empty-icon">💬</div>
-                    <p>开始与家庭管家对话吧</p>
-                    <div class="suggestions">
+    <MudItem xs="12" md="9" Class="p-2">
+        @if (currentSessionId is null && sessions.Count == 0)
+        {
+            <MudCard Class="h-full flex flex-col items-center justify-center" Style="margin:5px;">
+                <div class="welcome-section text-center" style="padding:10px;margin:10px;">
+                    <div class="welcome-icon mb-6">
+                        <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Large" Color="Color.Primary" />
+                    </div>
+                    <MudText Typo="Typo.h5" Class="text-gray-700 mb-2">欢迎使用家庭智能管家</MudText>
+                    <MudText Typo="Typo.body2" Class="text-gray-500 mb-8">我可以帮您管理家庭事务、查询信息、制定计划</MudText>
+                    <div class="suggestions flex flex-wrap justify-center gap-2">
                         @foreach (var s in suggestions)
                         {
-                            <button class="suggestion-btn" @onclick="() => UseSuggestion(s)">@s</button>
+                            <MudButton Style="margin:5px;" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" OnClick="() => UseSuggestion(s)">
+                                <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Size="Size.Small" Class="mr-1" />
+                                @s
+                            </MudButton>
                         }
                     </div>
                 </div>
-            }
-            else
-            {
-                <div class="messages">
+            </MudCard>
+        }
+        else
+        {
+            <MudCard Class="h-full flex flex-col" Elevation="0">
+                <MudCardHeader Class="pb-3 px-6 border-b">
+                    <CardHeaderContent>
+                        <div class="d-flex align-center gap-3">
+                            <div class="chat-avatar">
+                                <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Medium" />
+                            </div>
+                            <div>
+                                <MudText Typo="Typo.h5" Class="font-bold">家庭智能管家</MudText>
+                                <MudText Typo="Typo.caption" Class="text-gray-500">支持自然语言交互，随时为您服务</MudText>
+                            </div>
+                        </div>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <div class="d-flex align-center gap-2">
+                            <MudChip T="string" Color="@(Agent.IsAvailable ? Color.Success : Color.Warning)" Size="Size.Small" Variant="Variant.Outlined">
+                                @(Agent.IsAvailable ? "DeepSeek V4 Pro" : "Mock 模式")
+                            </MudChip>
+                        </div>
+                    </CardHeaderActions>
+                </MudCardHeader>
+
+                <div class="chat-window flex-1 overflow-y-auto p-6" Style="height: calc(100vh - 240px);">
                     @foreach (var msg in messages)
                     {
-                        <div class="message @msg.Role">
-                            <div class="bubble">
+                        <div class="@(msg.Role == "user" ? "chat-message user" : "chat-message assistant")">
+                            <div class="message-avatar">
+                                @if (msg.Role == "user")
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Medium" Class="text-gray-400" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Medium" Color="Color.Primary" />
+                                }
+                            </div>
+                            <div class="message-bubble">
                                 @if (!string.IsNullOrEmpty(msg.ImagePreview))
                                 {
                                     <img src="@msg.ImagePreview" class="msg-image" alt="附件" />
                                 }
-                                @msg.Content
+                                <MudText Typo="Typo.body1">@msg.Content</MudText>
                             </div>
                         </div>
                     }
                     @if (loading)
                     {
-                        <div class="message assistant">
-                            <div class="bubble loading">思考中...</div>
+                        <div class="chat-message assistant">
+                            <div class="message-avatar">
+                                <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Medium" Color="Color.Primary" />
+                            </div>
+                            <div class="message-bubble">
+                                <MudProgressCircular Size="Size.Small" Class="mr-2" />
+                                <span>思考中...</span>
+                            </div>
                         </div>
                     }
                 </div>
-            }
-        </div>
 
-        <div class="input-area">
-            @if (!string.IsNullOrEmpty(attachedImagePreview))
-            {
-                <div class="image-attach">
-                    <img src="@attachedImagePreview" class="attach-preview" alt="预览" />
-                    <button class="attach-remove" @onclick="ClearAttachment">✕</button>
-                </div>
-            }
-            <InputFile OnChange="OnImageSelected" accept="image/*" class="file-input" disabled="@loading" />
-            <textarea @bind="userInput" @bind:event="oninput"
-                      placeholder="输入消息或上传图片... (Enter 发送, Shift+Enter 换行)"
-                      @onkeydown="HandleKeyDown" disabled="@loading"></textarea>
-            <button class="send-btn" @onclick="Send" disabled="@loading || (string.IsNullOrWhiteSpace(userInput) && attachedImageBytes is null)">
-                发送
-            </button>
-        </div>
-    </div>
-</div>
+                <MudCardContent Class="p-4 border-t bg-white">
+                    <div class="input-area flex items-end gap-3">
+                        @if (!string.IsNullOrEmpty(attachedImagePreview))
+                        {
+                            <div class="image-attach relative">
+                                <img src="@attachedImagePreview" class="attach-preview" alt="预览" />
+                                <MudButton Size="Size.Small" Color="Color.Error" Class="absolute -top-2 -right-2 rounded-full" OnClick="ClearAttachment" Style="width: 24px; height: 24px; padding: 0;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                                </MudButton>
+                            </div>
+                        }
+                        <label class="file-input-wrapper">
+                            <InputFile OnChange="OnImageSelected" accept="image/*" class="file-input" disabled="@loading" />
+                            <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Medium" Class="text-gray-400" />
+                        </label>
+                        <MudTextField 
+                            @bind-Value="userInput" 
+                            Placeholder="输入消息..."
+                            Multiline="true" 
+                            Rows="2"
+                            Disabled="loading"
+                            OnKeyDown="HandleKeyDown"
+                            Class="flex-1"
+                            Style="border-radius: 20px;" />
+                        <MudButton 
+                            Color="Color.Primary" 
+                            OnClick="Send" 
+                            Disabled="@(loading || (string.IsNullOrWhiteSpace(userInput) && attachedImageBytes is null))"
+                            Variant="Variant.Filled"
+                            Class="rounded-full"
+                            Size="Size.Medium">
+                            <MudIcon Icon="@Icons.Material.Filled.Send" />
+                        </MudButton>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        }
+    </MudItem>
+</MudGrid>
 
 @code {
     private string userInput = string.Empty;
@@ -143,22 +232,27 @@
 
     private async Task DeleteSession(long id)
     {
-        await ConversationSvc.DeleteSessionAsync(id);
-        if (currentSessionId == id)
+        try
         {
-            currentSessionId = null;
-            messages.Clear();
+            await ConversationSvc.DeleteSessionAsync(id);
+            if (currentSessionId == id)
+            {
+                currentSessionId = null;
+                messages.Clear();
+            }
+            await LoadSessions();
+            Snackbar.Add("会话已删除", Severity.Success);
         }
-        await LoadSessions();
+        catch (Exception ex)
+        {
+            Snackbar.Add($"删除失败: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task OnImageSelected(InputFileChangeEventArgs e)
     {
         if (e.File is null || loading) return;
-        if (e.File.Size > 10 * 1024 * 1024)
-        {
-            return;
-        }
+        if (e.File.Size > 10 * 1024 * 1024) return;
         using var stream = e.File.OpenReadStream(10 * 1024 * 1024);
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms);
@@ -224,54 +318,109 @@
     {
         if (e.Key == "Enter" && !e.ShiftKey) await Send();
     }
+
+    public void Dispose() { }
 }
 
 <style>
-    .chat-page { display: flex; height: calc(100vh - 104px); max-width: 1200px; margin: 0 auto; gap: 16px; }
-    .chat-sidebar { width: 260px; background: white; border-radius: 12px; padding: 16px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .sidebar-header h3 { margin: 0; font-size: 15px; color: #333; }
-    .btn-new { padding: 4px 10px; background: #1976d2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
-    .btn-new:hover { background: #1565c0; }
-    .session-list { display: flex; flex-direction: column; gap: 6px; }
-    .session-item { padding: 10px 12px; background: #f5f7fa; border-radius: 8px; cursor: pointer; position: relative; transition: all 0.15s; }
-    .session-item:hover { background: #e3f2fd; }
-    .session-item.active { background: #e3f2fd; border-left: 3px solid #1976d2; }
-    .session-title { font-size: 13px; color: #333; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 20px; }
-    .session-meta { display: flex; gap: 8px; font-size: 11px; color: #999; margin-top: 4px; }
-    .btn-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #ccc; cursor: pointer; font-size: 12px; padding: 2px 4px; }
-    .btn-del:hover { color: #d32f2f; }
-    .empty-sessions { text-align: center; color: #999; padding: 20px; font-size: 13px; }
-    .chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-    .chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .chat-header h2 { margin: 0; color: #333; font-size: 20px; }
-    .status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-    .status.ok { background: #e8f5e9; color: #2e7d32; }
-    .status.warn { background: #fff3e0; color: #e65100; }
-    .chat-window { flex: 1; background: white; border-radius: 12px; padding: 20px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #999; }
-    .empty-icon { font-size: 48px; margin-bottom: 12px; }
-    .empty-state p { margin: 0 0 20px; }
-    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-    .suggestion-btn { padding: 8px 14px; background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 16px; cursor: pointer; font-size: 13px; color: #555; transition: all 0.15s ease; }
-    .suggestion-btn:hover { background: #e3f2fd; border-color: #1976d2; color: #1976d2; }
-    .messages { display: flex; flex-direction: column; gap: 12px; }
-    .message { display: flex; }
-    .message.user { justify-content: flex-end; }
-    .message.assistant { justify-content: flex-start; }
-    .bubble { max-width: 70%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-    .message.user .bubble { background: #1976d2; color: white; border-bottom-right-radius: 4px; }
-    .message.assistant .bubble { background: #f0f4f8; color: #333; border-bottom-left-radius: 4px; }
-    .bubble.loading { color: #999; font-style: italic; }
-    .input-area { display: flex; gap: 8px; margin-top: 12px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); align-items: flex-end; flex-wrap: wrap; }
-    .file-input { font-size: 12px; align-self: center; }
-    .image-attach { position: relative; display: inline-block; }
-    .attach-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
-    .attach-remove { position: absolute; top: -6px; right: -6px; background: #f44336; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .msg-image { max-width: 220px; max-height: 220px; border-radius: 8px; margin-bottom: 6px; display: block; }
-    textarea { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 14px; font-family: inherit; resize: none; height: 60px; outline: none; }
-    textarea:focus { border-color: #1976d2; }
-    .send-btn { padding: 0 24px; background: #1976d2; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
-    .send-btn:disabled { background: #bbb; cursor: not-allowed; }
-    .send-btn:not(:disabled):hover { background: #1565c0; }
+    .session-list { display: flex; flex-direction: column; gap: 2px; }
+    .session-card { 
+        transition: all 0.15s ease;
+        border-radius: 8px;
+        margin-bottom: 2px;
+        border: 1px solid transparent;
+    }
+    .session-card:hover { background: #f5f7fa; }
+    .session-card.active { background: #e3f2fd; border-color: #1976d2; border-left-width: 3px; }
+    .session-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #f0f4f8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .session-avatar.active { background: #1976d2; color: white; }
+
+    .chat-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+
+    .chat-window { background: #f8fafc; }
+    .chat-message { display: flex; margin-bottom: 16px; }
+    .chat-message.user { justify-content: flex-end; }
+    .chat-message.assistant { justify-content: flex-start; }
+    .message-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #f0f4f8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-right: 10px;
+    }
+    .chat-message.user .message-avatar { margin-right: 0; margin-left: 10px; order: 2; }
+    .message-bubble { 
+        max-width: 70%; 
+        padding: 14px 18px; 
+        border-radius: 20px; 
+        font-size: 14px; 
+        line-height: 1.6;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .chat-message.user .message-bubble { 
+        background: #1976d2; 
+        color: white; 
+        border-bottom-right-radius: 4px; 
+        order: 1;
+    }
+    .chat-message.assistant .message-bubble { 
+        background: white; 
+        color: #333; 
+        border-bottom-left-radius: 4px;
+        order: 1;
+    }
+    .msg-image { max-width: 240px; max-height: 240px; border-radius: 12px; margin-bottom: 10px; display: block; }
+
+    .welcome-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        color: white;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .input-area { display: flex; align-items: flex-end; gap: 8px; }
+    .file-input-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #f0f4f8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+    }
+    .file-input-wrapper:hover { background: #e3f2fd; }
+    .file-input { display: none; }
+    .image-attach { position: relative; }
+    .attach-preview { width: 64px; height: 64px; object-fit: cover; border-radius: 12px; }
 </style>

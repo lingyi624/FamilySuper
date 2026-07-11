@@ -24,7 +24,7 @@
                 {
                     <div class="history-item" @onclick="() => ViewRecord(r)">
                         <div class="history-q">@r.Question</div>
-                        <div class="history-meta">@r.RecordDate.ToString("MM-dd HH:mm")</div>
+                        <div class="history-meta">@(r.RecordDate?.ToString("MM-dd HH:mm") ?? "-")</div>
                     </div>
                 }
                 @if (history.Count == 0)

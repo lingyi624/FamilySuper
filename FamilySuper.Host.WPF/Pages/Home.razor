@@ -2,101 +2,128 @@
 @inject Services.ModeStateContainer ModeState
 @inject IAgentService Agent
 
-<div class="home-page">
-    <div class="hero-card">
-        <h1>欢迎回家</h1>
-        <p class="subtitle">您的家庭智能中枢,守护每一位家人</p>
-        <div class="mode-display">
-            当前模式:
-            <strong class="mode-text mode-@ModeState.CurrentMode.ToString().ToLower()">
-                @(ModeState.CurrentMode == AppMode.Adult ? "大人模式" : "小孩模式")
-            </strong>
-        </div>
-    </div>
+<MudGrid Class="max-w-6xl mx-auto">
+    <MudItem xs="12">
+        <MudCard Elevation="8" Class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+            <MudCardContent>
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <MudText Typo="Typo.h3" Class="mb-2">欢迎回家</MudText>
+                        <MudText Typo="Typo.body1" Class="opacity-90">您的家庭智能中枢,守护每一位家人</MudText>
+                    </div>
+                    <MudChip T="string" Color="@(ModeState.CurrentMode == AppMode.Adult ? Color.Success : Color.Warning)" Size="Size.Medium" Class="px-3 py-1">
+                        <span>@(ModeState.CurrentMode == AppMode.Adult ? "👨 大人模式" : "🧒 小孩模式")</span>
+                    </MudChip>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 
-    <div class="features-grid">
-        <div class="feature-card">
-            <div class="feature-icon">🤖</div>
-            <h3>智能对话</h3>
-            <p>基于 DeepSeek V4 Pro 的家庭管家,支持思考模式与工具调用</p>
-            <div class="feature-status @(Agent.IsAvailable ? "status-ok" : "status-warn")">
-                @(Agent.IsAvailable ? "已就绪" : "Mock 模式")
-            </div>
-        </div>
+    <MudItem xs="12" sm="6" md="3" Class="mt-4">
+        <MudCard Hover="true" Elevation="2" Class="cursor-pointer transition-all duration-200 hover:elevation-8">
+            <MudCardContent>
+                <div class="flex items-start justify-between mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Large" Class="text-indigo-500" />
+                    <MudChip T="string" Color="@(Agent.IsAvailable ? Color.Success : Color.Warning)" Size="Size.Small">
+                        @(Agent.IsAvailable ? "已就绪" : "Mock")
+                    </MudChip>
+                </div>
+                <MudText Typo="Typo.h6" Class="mb-1">智能对话</MudText>
+                <MudText Typo="Typo.body2" Class="text-gray-500">基于 DeepSeek V4 Pro 的家庭管家,支持思考模式与工具调用</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 
-        <div class="feature-card">
-            <div class="feature-icon">🔒</div>
-            <h3>隐私保护</h3>
-            <p>所有数据本地存储,AES-256 加密,不上传云端</p>
-            <div class="feature-status status-ok">已启用</div>
-        </div>
+    <MudItem xs="12" sm="6" md="3" Class="mt-4">
+        <MudCard Hover="true" Elevation="2" Class="cursor-pointer transition-all duration-200 hover:elevation-8">
+            <MudCardContent>
+                <div class="flex items-start justify-between mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" Class="text-green-500" />
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">已启用</MudChip>
+                </div>
+                <MudText Typo="Typo.h6" Class="mb-1">隐私保护</MudText>
+                <MudText Typo="Typo.body2" Class="text-gray-500">所有数据本地存储,AES-256 加密,不上传云端</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 
-        <div class="feature-card">
-            <div class="feature-icon">🔄</div>
-            <h3>模式切换</h3>
-            <p>大人/小孩模式独立数据视图,内容过滤</p>
-            <div class="feature-status status-ok">已配置</div>
-        </div>
+    <MudItem xs="12" sm="6" md="3" Class="mt-4">
+        <MudCard Hover="true" Elevation="2" Class="cursor-pointer transition-all duration-200 hover:elevation-8">
+            <MudCardContent>
+                <div class="flex items-start justify-between mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.SwitchAccount" Size="Size.Large" Class="text-blue-500" />
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">已配置</MudChip>
+                </div>
+                <MudText Typo="Typo.h6" Class="mb-1">模式切换</MudText>
+                <MudText Typo="Typo.body2" Class="text-gray-500">大人/小孩模式独立数据视图,内容过滤</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 
-        <div class="feature-card">
-            <div class="feature-icon">🌐</div>
-            <h3>多端协同</h3>
-            <p>桌面端 + H5 移动端,frp 内网穿透远程访问</p>
-            <div class="feature-status status-warn">第一阶段待启用</div>
-        </div>
-    </div>
-</div>
+    <MudItem xs="12" sm="6" md="3" Class="mt-4">
+        <MudCard Hover="true" Elevation="2" Class="cursor-pointer transition-all duration-200 hover:elevation-8">
+            <MudCardContent>
+                <div class="flex items-start justify-between mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Cloud" Size="Size.Large" Class="text-orange-500" />
+                    <MudChip T="string" Color="Color.Warning" Size="Size.Small">待启用</MudChip>
+                </div>
+                <MudText Typo="Typo.h6" Class="mb-1">多端协同</MudText>
+                <MudText Typo="Typo.body2" Class="text-gray-500">桌面端 + H5 移动端,frp 内网穿透远程访问</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" Class="mt-6">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-4">快捷入口</MudText>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    <NavLink href="family" Class="quick-link">
+                        <span class="text-2xl">👨‍👩‍👧</span>
+                        <span>家庭</span>
+                    </NavLink>
+                    <NavLink href="chat" Class="quick-link">
+                        <span class="text-2xl">💬</span>
+                        <span>对话</span>
+                    </NavLink>
+                    <NavLink href="finance" Class="quick-link">
+                        <span class="text-2xl">💰</span>
+                        <span>财务</span>
+                    </NavLink>
+                    <NavLink href="health" Class="quick-link">
+                        <span class="text-2xl">❤️</span>
+                        <span>健康</span>
+                    </NavLink>
+                    <NavLink href="work" Class="quick-link">
+                        <span class="text-2xl">💼</span>
+                        <span>日程</span>
+                    </NavLink>
+                    <NavLink href="shopping" Class="quick-link">
+                        <span class="text-2xl">🛒</span>
+                        <span>购物</span>
+                    </NavLink>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
 <style>
-    .home-page { max-width: 1100px; margin: 0 auto; }
-    .hero-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 32px;
-        border-radius: 16px;
-        margin-bottom: 24px;
-        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
-    }
-    .hero-card h1 { margin: 0 0 8px; font-size: 28px; }
-    .subtitle { margin: 0 0 16px; opacity: 0.9; font-size: 15px; }
-    .mode-display {
-        display: inline-flex;
+    .quick-link {
+        display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 6px;
-        background: rgba(255,255,255,0.15);
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-size: 14px;
+        padding: 16px 12px;
+        border-radius: 8px;
+        background: #f8fafc;
+        text-decoration: none;
+        color: #475569;
+        transition: all 0.2s ease;
+        gap: 4px;
     }
-    .mode-text { font-weight: 600; }
-    .mode-adult { color: #a5d6a7; }
-    .mode-child { color: #ffcc80; }
-    .features-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
-    }
-    .feature-card {
-        background: white;
-        padding: 24px;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .feature-card:hover {
+    .quick-link:hover {
+        background: #e3f2fd;
+        color: #1976d2;
         transform: translateY(-2px);
-        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
     }
-    .feature-icon { font-size: 36px; margin-bottom: 12px; }
-    .feature-card h3 { margin: 0 0 8px; font-size: 16px; color: #333; }
-    .feature-card p { margin: 0 0 12px; font-size: 13px; color: #666; line-height: 1.5; }
-    .feature-status {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-    .status-ok { background: #e8f5e9; color: #2e7d32; }
-    .status-warn { background: #fff3e0; color: #e65100; }
 </style>

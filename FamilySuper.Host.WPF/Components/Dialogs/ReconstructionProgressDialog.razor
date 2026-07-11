@@ -1,0 +1,37 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">模型重建进度</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudProgressLinear Value="@Progress" Class="mb-4" />
+                <MudText Typo="Typo.body1" Class="mb-2">@Status</MudText>
+                <MudText Typo="Typo.caption" Class="text-muted">耗时: @ElapsedTime</MudText>
+                <MudText Typo="Typo.caption" Class="text-muted mt-1">当前步骤: @CurrentStep</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Color="Color.Error" OnClick="Cancel" Disabled="@(!IsProcessing)">取消</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public int Progress { get; set; }
+    [Parameter] public string Status { get; set; } = string.Empty;
+    [Parameter] public string ElapsedTime { get; set; } = "00:00:00";
+    [Parameter] public string CurrentStep { get; set; } = string.Empty;
+    [Parameter] public bool IsProcessing { get; set; }
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private void Cancel()
+    {
+        MudDialog.Close(DialogResult.Cancel());
+    }
+}

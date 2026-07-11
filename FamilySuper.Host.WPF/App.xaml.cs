@@ -9,6 +9,7 @@ using FamilySuper.Host.WPF.Services;
 using FamilySuper.Infrastructure;
 using Microsoft.AspNetCore.Components.WebView.Wpf;
 using Microsoft.EntityFrameworkCore;
+using MudBlazor.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -43,6 +44,9 @@ public partial class App : System.Windows.Application
             var configuration = BuildConfiguration();
             Log.Information("配置加载完成");
 
+            GenerateIcons();
+            Log.Information("图标生成完成");
+
             ConfigureServices(configuration);
             Log.Information("服务配置完成");
 
@@ -73,6 +77,23 @@ public partial class App : System.Windows.Application
         }
     }
 
+    private void GenerateIcons()
+    {
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "app.ico");
+        var logoPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "logo.png");
+
+        if (!File.Exists(iconPath))
+        {
+            IconGenerator.GenerateFamilySuperIcon(iconPath);
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(logoPath)!);
+        if (!File.Exists(logoPath))
+        {
+            IconGenerator.GenerateLogoPng(logoPath, 256);
+        }
+    }
+
     private IConfiguration BuildConfiguration()
     {
         return new ConfigurationBuilder()
@@ -98,6 +119,7 @@ public partial class App : System.Windows.Application
         services.AddFamilySuperAgent(configuration);
         services.AddScoped<ModeStateContainer>();
         services.AddWpfBlazorWebView();
+        services.AddMudServices();
         services.AddFamilySuperData(configuration);
 
         services.AddSingleton<SystemTrayService>();

@@ -1,0 +1,272 @@
+@page "/entertainment"
+@inject IAgentService Agent
+@inject IRepository<EntertainmentRecord> EntertainRepo
+@inject IRepository<FamilyMember> MemberRepo
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using FamilySuper.Host.WPF.Components.Dialogs
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🎬</span>
+                        <span>娱乐推荐</span>
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6" Class="d-flex align-center gap-2">
+                        <span>🎯</span>
+                        <span>个性化推荐</span>
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4">
+                        <MudSelect Label="类别" @bind-Value="selectedCategory" T="string">
+                            <MudSelectItem T="string" Value="@("movie")">🎬 电影</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("tv")">📺 电视剧</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("music")">🎵 音乐</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("book")">📖 书籍</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("game")">🎮 游戏</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField Label="偏好" @bind-Value="preference" Placeholder="如:科幻、喜剧、悬疑..." />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Color="Color.Primary" OnClick="GetRecommendation" Disabled="loading" Variant="Variant.Filled" Class="mt-2">
+                            @(loading ? "生成中..." : "获取推荐")
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+
+                @if (!string.IsNullOrEmpty(recommendation))
+                {
+                    <MudCard Elevation="0" Class="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
+                        <MudCardContent>
+                            <MudText Typo="Typo.body1" Class="whitespace-pre-wrap" Style="line-height: 1.8;">@recommendation</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Elevation="0">输入偏好并点击"获取推荐"获取AI智能推荐</MudAlert>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" Class="mt-4">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6" Class="d-flex align-center gap-2">
+                        <span>📋</span>
+                        <span>收藏记录</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAdd" Variant="Variant.Filled">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加记录
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudSelect 
+                    Label="类别" 
+                    @bind-Value="recordFilter" 
+                    T="string?"
+                    Placeholder="全部"
+                    Class="mb-4"
+                    OnChange="LoadRecords">
+                    <MudSelectItem T="string?" Value="null">全部</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("movie")">电影</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("tv")">电视剧</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("music")">音乐</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("book")">书籍</MudSelectItem>
+                    <MudSelectItem T="string?" Value="@("game")">游戏</MudSelectItem>
+                </MudSelect>
+
+                <MudTable Items="records" Hover="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>标题</MudTh>
+                        <MudTh>类别</MudTh>
+                        <MudTh>类型</MudTh>
+                        <MudTh>来源</MudTh>
+                        <MudTh>成员</MudTh>
+                        <MudTh>备注</MudTh>
+                        <MudTh>操作</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd><MudText FontWeight="FontWeight.Bold">@context.Title</MudText></MudTd>
+                        <MudTd>
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small">@GetCategoryLabel(context.Category)</MudChip>
+                        </MudTd>
+                        <MudTd>@(context.Type ?? "-")</MudTd>
+                        <MudTd>@(context.Source ?? "-")</MudTd>
+                        <MudTd>@GetMemberName(context.MemberId)</MudTd>
+                        <MudTd>@(context.Notes ?? "-")</MudTd>
+                        <MudTd>
+                            <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => Delete(context.Id)">
+                                <MudIcon Icon="@Icons.Material.Filled.Delete" />
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudAlert Severity="Severity.Info" Elevation="0">暂无记录</MudAlert>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    @if (showForm)
+    {
+        <MudItem xs="12" Class="mt-4">
+            <MudCard Elevation="4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">添加收藏</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm Model="editing" @ref="_form" @bind-IsValid="_isFormValid">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="标题 *" @bind-Value="editing.Title" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="类别" @bind-Value="editing.Category" T="string">
+                                    <MudSelectItem T="string" Value="null">请选择</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("movie")">电影</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("tv")">电视剧</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("music")">音乐</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("book")">书籍</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("game")">游戏</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="类型" @bind-Value="editing.Type" Placeholder="科幻/喜剧/流行..." />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="来源" @bind-Value="editing.Source" Placeholder="平台/渠道" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="成员" @bind-Value="editing.MemberId" T="long?">
+                                    <MudSelectItem T="long?" Value="null">家庭</MudSelectItem>
+                                    @foreach (var m in members)
+                                    {
+                                        <MudSelectItem T="long?" Value="m.Id">@m.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="备注" @bind-Value="editing.Notes" Multiline="true" Rows="2" />
+                            </MudItem>
+                        </MudGrid>
+                        <div class="mt-4">
+                            <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                            <MudButton Color="Color.Default" OnClick="CancelForm" Class="ml-2">取消</MudButton>
+                        </div>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private List<EntertainmentRecord> records = new();
+    private List<FamilyMember> members = new();
+    private EntertainmentRecord editing = new();
+    private bool showForm;
+    private MudForm _form = default!;
+    private bool _isFormValid;
+    private string? recordFilter;
+    private string selectedCategory = "movie";
+    private string preference = string.Empty;
+    private string recommendation = string.Empty;
+    private bool loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        members = await MemberRepo.GetAllAsync();
+        await LoadRecords();
+    }
+
+    private async Task LoadRecords()
+    {
+        var all = await EntertainRepo.GetAllAsync();
+        if (!string.IsNullOrEmpty(recordFilter))
+            all = all.Where(r => r.Category == recordFilter).ToList();
+        records = all.OrderByDescending(r => r.CreatedAt).ToList();
+    }
+
+    private string GetMemberName(long? id)
+        => id == null ? "家庭" : members.FirstOrDefault(m => m.Id == id)?.Name ?? "未知";
+
+    private string GetCategoryLabel(string? c) => c switch
+    {
+        "movie" => "电影", "tv" => "电视剧", "music" => "音乐", "book" => "书籍", "game" => "游戏", _ => c ?? "-"
+    };
+
+    private async Task GetRecommendation()
+    {
+        if (loading) return;
+        loading = true;
+        recommendation = string.Empty;
+
+        try
+        {
+            var categoryLabel = GetCategoryLabel(selectedCategory);
+            var prompt = $"请根据以下偏好，推荐5部{categoryLabel}作品，每部附带简短推荐理由。\n偏好: {(string.IsNullOrEmpty(preference) ? "不限" : preference)}";
+            recommendation = await Agent.ChatAsync(prompt, AppMode.Adult, [], "");
+        }
+        catch (Exception ex)
+        { recommendation = $"推荐失败: {ex.Message}"; }
+        finally
+        { loading = false; }
+    }
+
+    private void StartAdd()
+    {
+        editing = new EntertainmentRecord();
+        showForm = true;
+    }
+
+    private void CancelForm() => showForm = false;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        editing.CreatedAt = DateTime.UtcNow;
+        await EntertainRepo.AddAsync(editing);
+        Snackbar.Add("收藏记录已添加", Severity.Success);
+        showForm = false;
+        await LoadRecords();
+    }
+
+    private async Task Delete(long id)
+    {
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("确认删除");
+        var result = await dialog.Result;
+        if (result.Canceled) return;
+
+        var item = await EntertainRepo.GetByIdAsync(id);
+        if (item is not null) await EntertainRepo.DeleteAsync(item);
+        await LoadRecords();
+    }
+}

@@ -26,18 +26,22 @@ public class ProactivePushWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("主动推送后台服务已启动");
-        await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 await CheckAndPushAsync(stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "主动推送检查失败");
+                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
             }
-            await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
         }
     }
 

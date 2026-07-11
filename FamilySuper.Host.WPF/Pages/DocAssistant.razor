@@ -3,62 +3,82 @@
 @inject Services.ModeStateContainer ModeState
 @inject IJSRuntime JSRuntime
 
-<div class="page-container">
-    <div class="page-header">
-        <h2>📝 文档助手</h2>
-    </div>
+<MudGrid Class="max-w-4xl mx-auto">
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>📝</span>
+                        <span>文档助手</span>
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <div class="mb-4">
+                    <MudText Typo="Typo.body2" Class="text-gray-500 mb-2">选择操作:</MudText>
+                    <MudSelect Label="操作类型" @bind-Value="selectedAction" T="string" Class="w-full">
+                        <MudSelectItem T="string" Value="@("summarize")">📋 智能摘要</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("translate")">🌐 翻译</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("polish")">✨ 润色</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("expand")">📖 扩写</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("rewrite")">🔄 改写</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("extract")">📌 提取要点</MudSelectItem>
+                    </MudSelect>
+                </div>
 
-    <div class="section">
-        <div class="tool-select">
-            <label>选择操作:</label>
-            <select @bind="selectedAction">
-                <option value="summarize">📋 智能摘要</option>
-                <option value="translate">🌐 翻译</option>
-                <option value="polish">✨ 润色</option>
-                <option value="expand">📖 扩写</option>
-                <option value="rewrite">🔄 改写</option>
-                <option value="extract">📌 提取要点</option>
-            </select>
-        </div>
+                <div class="mb-4">
+                    <MudText Typo="Typo.body2" Class="text-gray-500 mb-2">输入文档内容:</MudText>
+                    <MudTextField 
+                        @bind-Value="inputText" 
+                        Label="输入文本"
+                        Multiline="true" 
+                        Rows="12"
+                        Placeholder="粘贴或输入需要处理的文本内容..."
+                        Class="w-full" />
+                </div>
 
-        <div class="input-section">
-            <label>输入文档内容:</label>
-            <textarea @bind="inputText" rows="12" placeholder="粘贴或输入需要处理的文本内容..."></textarea>
-        </div>
+                <div class="mb-4">
+                    <MudText Typo="Typo.body2" Class="text-gray-500 mb-2">处理结果:</MudText>
+                    <MudCard Elevation="0" Class="bg-gray-50 border">
+                        <MudCardContent>
+                            @if (loading)
+                            {
+                                <div class="text-center py-8">
+                                    <MudProgressCircular Size="Size.Small" Class="mb-2" />
+                                    <MudText Typo="Typo.body2" Class="text-gray-500">处理中...</MudText>
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(outputText))
+                            {
+                                <MudText Typo="Typo.body1" Class="whitespace-pre-wrap" Style="line-height: 1.7;">@outputText</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2" Class="text-gray-400 text-center py-8">处理结果将显示在这里</MudText>
+                            }
+                        </MudCardContent>
+                    </MudCard>
+                </div>
 
-        <div class="output-section">
-            <label>处理结果:</label>
-            <div class="result-area">
-                @if (loading)
-                {
-                    <div class="loading-indicator">处理中...</div>
-                }
-                else if (!string.IsNullOrEmpty(outputText))
-                {
-                    @outputText
-                }
-                else
-                {
-                    <div class="empty-result">处理结果将显示在这里</div>
-                }
-            </div>
-        </div>
-
-        <div class="form-actions">
-            <button class="btn btn-primary" @onclick="Process" disabled="@loading || string.IsNullOrWhiteSpace(inputText)">
-                @(loading ? "处理中..." : "开始处理")
-            </button>
-            <button class="btn" @onclick="Clear">清空</button>
-            <button class="btn" @onclick="CopyResult" disabled="@string.IsNullOrEmpty(outputText)">复制结果</button>
-        </div>
-    </div>
-</div>
+                <div class="form-actions">
+                    <MudButton Color="Color.Primary" OnClick="Process" Disabled="@IsProcessDisabled" Variant="Variant.Filled">
+                        @(loading ? "处理中..." : "开始处理")
+                    </MudButton>
+                    <MudButton Color="Color.Default" OnClick="Clear" Class="ml-2">清空</MudButton>
+                    <MudButton Color="Color.Default" OnClick="CopyResult" Disabled="@string.IsNullOrEmpty(outputText)" Class="ml-2">复制结果</MudButton>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
 @code {
     private string inputText = string.Empty;
     private string outputText = string.Empty;
     private string selectedAction = "summarize";
     private bool loading;
+    private bool IsProcessDisabled => loading || string.IsNullOrWhiteSpace(inputText);
 
     private async Task Process()
     {
@@ -151,25 +171,3 @@
 """
     };
 }
-
-<style>
-    .page-container { max-width: 900px; margin: 0 auto; padding: 20px; }
-    .page-header { margin-bottom: 16px; }
-    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
-    .section { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .tool-select { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .tool-select label { font-size: 14px; color: #555; }
-    .tool-select select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; min-width: 180px; }
-    .input-section, .output-section { margin-bottom: 16px; }
-    .input-section label, .output-section label { display: block; font-size: 14px; color: #555; margin-bottom: 8px; }
-    .input-section textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 120px; outline: none; box-sizing: border-box; }
-    .input-section textarea:focus { border-color: #1976d2; }
-    .result-area { min-height: 180px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; background: #fafafa; }
-    .loading-indicator { color: #999; font-style: italic; text-align: center; padding: 40px; }
-    .empty-result { color: #bbb; text-align: center; padding: 40px; }
-    .form-actions { display: flex; gap: 8px; }
-    .btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 14px; color: #555; }
-    .btn:hover:not(:disabled) { background: #f0f4f8; }
-    .btn-primary { background: #1976d2; color: white; border-color: #1976d2; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-</style>

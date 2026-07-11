@@ -1,0 +1,297 @@
+@page "/care-reminder"
+@using CareReminderEntity = FamilySuper.Core.Entities.CareReminder
+@using CareReminderType = FamilySuper.Core.Entities.CareReminderType
+@inject ICareReminderService CareSvc
+@inject IMedicationService MedSvc
+@inject IRepository<FamilyMember> MemberRepo
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using FamilySuper.Host.WPF.Components.Dialogs
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h5" Class="mb-4">关怀提醒</MudText>
+    </MudItem>
+
+    <MudItem xs="12" lg="4">
+        <MudCard Elevation="2" Class="mb-4">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">即将到期提醒</MudText>
+                @if (dueReminders.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="text-gray-500">暂无即将到期的提醒</MudText>
+                }
+                else
+                {
+                    foreach (var reminder in dueReminders)
+                    {
+                        <MudAlert Severity="@GetSeverity(reminder.Type)" Class="mb-2">
+                            <MudText Typo="Typo.body2" Class="font-bold">@reminder.Title</MudText>
+                            <MudText Typo="Typo.caption">@(reminder.RemindDate?.ToString("yyyy-MM-dd")) · @reminder.Category</MudText>
+                        </MudAlert>
+                    }
+                }
+            </MudCardContent>
+        </MudCard>
+
+        <MudCard Elevation="2" Class="mb-4">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">用药提醒</MudText>
+                @if (activeMedications.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="text-gray-500">暂无活跃用药计划</MudText>
+                }
+                else
+                {
+                    foreach (var med in activeMedications)
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mb-2">
+                            <MudText Typo="Typo.body2" Class="font-bold">@med.DrugName</MudText>
+                            <MudText Typo="Typo.caption">@med.Dosage · @med.Frequency · 每日 @med.TimesPerDay 次</MudText>
+                        </MudAlert>
+                    }
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" lg="8">
+        <MudCard Elevation="2">
+            <MudCardContent>
+                <div class="flex justify-between items-center mb-3">
+                    <MudText Typo="Typo.h6">提醒列表</MudText>
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" OnClick="StartAdd">新增提醒</MudButton>
+                </div>
+
+                <MudTable Items="reminders" Hover="true" Striped="true" Dense="true">
+                    <HeaderContent>
+                        <MudTh>标题</MudTh>
+                        <MudTh>类型</MudTh>
+                        <MudTh>提醒日期</MudTh>
+                        <MudTh>状态</MudTh>
+                        <MudTh>操作</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>
+                            <MudText Typo="Typo.body2" FontWeight="FontWeight.Medium">@context.Title</MudText>
+                        </MudTd>
+                        <MudTd>
+                            <MudChip Size="Size.Small" Color="@GetTypeColor(context.Type)" T="string">@GetTypeName(context.Type)</MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <MudText Typo="Typo.body2">@(context.RemindDate?.ToString("yyyy-MM-dd") ?? "-")</MudText>
+                        </MudTd>
+                        <MudTd>
+                            <MudChip Size="Size.Small" Color="@(context.IsCompleted ? Color.Success : Color.Warning)" T="string">
+                                @(context.IsCompleted ? "已完成" : "待处理")
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>
+                            @if (!context.IsCompleted)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" OnClick="() => Complete(context)" />
+                            }
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="() => StartEdit(context)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => Delete(context)" />
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@if (showForm)
+{
+    <MudOverlay Visible="true" OnClick="CancelForm" DarkBackground="true" />
+    <MudPaper Class="dialog-overlay pa-6" Elevation="8" Style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; width: 520px; max-height: 90vh; overflow-y: auto; background: white; border-radius: 12px;">
+        <MudText Typo="Typo.h6" Class="mb-4">@(editing.Id > 0 ? "编辑提醒" : "新增提醒")</MudText>
+        <MudForm @ref="_form" @bind-IsValid="_isFormValid" Model="editing">
+            <MudTextField Label="标题" @bind-Value="editing.Title" Required="true" />
+            <div class="mt-3">
+                <MudSelect Label="类型" @bind-Value="editing.Type" T="CareReminderType" Required="true">
+                    <MudSelectItem T="CareReminderType" Value="CareReminderType.Custom">通用</MudSelectItem>
+                    <MudSelectItem T="CareReminderType" Value="CareReminderType.ElderlyCare">养老关怀</MudSelectItem>
+                    <MudSelectItem T="CareReminderType" Value="CareReminderType.Medication">用药提醒</MudSelectItem>
+                    <MudSelectItem T="CareReminderType" Value="CareReminderType.Birthday">生日</MudSelectItem>
+                    <MudSelectItem T="CareReminderType" Value="CareReminderType.HealthCheck">健康检查</MudSelectItem>
+                    <MudSelectItem T="CareReminderType" Value="CareReminderType.ChildCare">儿童关怀</MudSelectItem>
+                    <MudSelectItem T="CareReminderType" Value="CareReminderType.Anniversary">纪念日</MudSelectItem>
+                </MudSelect>
+            </div>
+            <div class="mt-3">
+                <MudSelect Label="分类" @bind-Value="editing.Category" T="string">
+                    <MudSelectItem T="string" Value="@("健康")">健康</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("家庭")">家庭</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("教育")">教育</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("财务")">财务</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("通用")">通用</MudSelectItem>
+                </MudSelect>
+            </div>
+            <MudDatePicker Label="提醒日期" @bind-Date="remindDateValue" Class="mt-3" />
+            <MudTextField Label="内容" @bind-Value="editing.Content" Lines="3" Class="mt-3" />
+            <div class="mt-3">
+                <MudSwitch Label="是否重复" @bind-Checked="editing.IsRecurring" Color="Color.Primary" T="bool" />
+            </div>
+            @if (editing.IsRecurring)
+            {
+                <MudSelect Label="重复周期" @bind-Value="editing.RecurrencePattern" T="string" Class="mt-2">
+                    <MudSelectItem T="string" Value="@("daily")">每天</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("weekly")">每周</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("monthly")">每月</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("yearly")">每年</MudSelectItem>
+                </MudSelect>
+            }
+            @if (familyMembers.Count > 0)
+            {
+                <MudSelect Label="关联成员" @bind-Value="editing.MemberId" T="long?" Class="mt-3">
+                    @foreach (var member in familyMembers)
+                    {
+                        <MudSelectItem T="long?" Value="member.Id">@member.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            <div class="flex gap-2 mt-4">
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!_isFormValid)" OnClick="Save">保存</MudButton>
+                <MudButton Color="Color.Default" OnClick="CancelForm" Variant="Variant.Outlined">取消</MudButton>
+            </div>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    private List<CareReminderEntity> reminders = new();
+    private List<CareReminderEntity> dueReminders = new();
+    private List<MedicationPlan> activeMedications = new();
+    private List<FamilyMember> familyMembers = new();
+    private CareReminderEntity editing = new();
+    private DateTime? remindDateValue;
+    private bool showForm;
+    private MudForm _form = default!;
+    private bool _isFormValid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        reminders = await CareSvc.GetAllAsync();
+        dueReminders = await CareSvc.GetDueSoonAsync(7);
+        activeMedications = await MedSvc.GetPlansAsync(activeOnly: true);
+        familyMembers = await MemberRepo.GetAllAsync();
+    }
+
+    private void StartAdd()
+    {
+        editing = new CareReminderEntity { RemindDate = DateTime.UtcNow, Type = CareReminderType.Custom };
+        remindDateValue = DateTime.UtcNow;
+        showForm = true;
+    }
+
+    private void StartEdit(CareReminderEntity r)
+    {
+        editing = new CareReminderEntity
+        {
+            Id = r.Id, Title = r.Title, Type = r.Type, Category = r.Category,
+            Content = r.Content, RemindDate = r.RemindDate, IsRecurring = r.IsRecurring,
+            RecurrencePattern = r.RecurrencePattern, MemberId = r.MemberId, Notes = r.Notes
+        };
+        remindDateValue = r.RemindDate;
+        showForm = true;
+    }
+
+    private void CancelForm() => showForm = false;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        try
+        {
+            if (remindDateValue.HasValue) editing.RemindDate = remindDateValue.Value;
+            if (editing.Id > 0)
+            {
+                await CareSvc.UpdateAsync(editing);
+                Snackbar.Add("提醒已更新", Severity.Success);
+            }
+            else
+            {
+                await CareSvc.AddAsync(editing);
+                Snackbar.Add("提醒已添加", Severity.Success);
+            }
+            showForm = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"保存失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Complete(CareReminderEntity r)
+    {
+        try
+        {
+            await CareSvc.MarkCompletedAsync(r.Id);
+            await LoadData();
+            Snackbar.Add("已标记为完成", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"操作失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Delete(CareReminderEntity r)
+    {
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("确认删除");
+        var result = await dialog.Result;
+        if (result.Canceled) return;
+
+        try
+        {
+            await CareSvc.DeleteAsync(r.Id);
+            await LoadData();
+            Snackbar.Add("提醒已删除", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"删除失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private static Severity GetSeverity(CareReminderType type) => type switch
+    {
+        CareReminderType.Medication => Severity.Error,
+        CareReminderType.ElderlyCare => Severity.Warning,
+        CareReminderType.HealthCheck => Severity.Info,
+        _ => Severity.Normal
+    };
+
+    private static Color GetTypeColor(CareReminderType type) => type switch
+    {
+        CareReminderType.Medication => Color.Error,
+        CareReminderType.ElderlyCare => Color.Warning,
+        CareReminderType.Birthday => Color.Secondary,
+        CareReminderType.HealthCheck => Color.Info,
+        CareReminderType.ChildCare => Color.Success,
+        _ => Color.Default
+    };
+
+    private static string GetTypeName(CareReminderType type) => type switch
+    {
+        CareReminderType.Custom => "通用",
+        CareReminderType.ElderlyCare => "养老",
+        CareReminderType.Medication => "用药",
+        CareReminderType.Birthday => "生日",
+        CareReminderType.HealthCheck => "健康",
+        CareReminderType.ChildCare => "儿童",
+        CareReminderType.Anniversary => "纪念日",
+        _ => "未知"
+    };
+}

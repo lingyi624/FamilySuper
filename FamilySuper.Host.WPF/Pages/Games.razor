@@ -1,37 +1,61 @@
 @page "/games"
-@inject Services.ModeStateContainer ModeState
 
-<div class="page-container">
-    <div class="page-header">
-        <h2>🎮 互动游戏</h2>
-    </div>
-    <div class="empty-state">
-        <div class="empty-icon">🎮</div>
-        <h3>即将上线</h3>
-        <p>我们正在为您准备有趣的互动游戏,敬请期待!</p>
-        <div class="coming-soon-list">
-            <div class="coming-soon-item">🧩 益智拼图</div>
-            <div class="coming-soon-item">📖 成语接龙</div>
-            <div class="coming-soon-item">🔢 数学闯关</div>
-            <div class="coming-soon-item">🌍 地理探索</div>
-        </div>
-    </div>
-</div>
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🎮</span>
+                        <span>益智游戏</span>
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <div class="empty-state">
+                    <MudIcon Icon="@Icons.Material.Filled.Gamepad" Size="Size.Large" Class="text-gray-300 mb-4" />
+                    <MudText Typo="Typo.h5" Class="mb-2">即将上线</MudText>
+                    <MudText Typo="Typo.body2" Class="text-gray-500 mb-6">我们正在为您准备有趣的互动游戏,敬请期待!</MudText>
+                    <MudGrid Class="w-full max-w-md">
+                        <MudItem xs="6" Class="p-2">
+                            <MudCard Elevation="1" Class="text-center">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6">🧩</MudText>
+                                    <MudText Typo="Typo.body2" Class="text-gray-600">益智拼图</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="6" Class="p-2">
+                            <MudCard Elevation="1" Class="text-center">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6">📖</MudText>
+                                    <MudText Typo="Typo.body2" Class="text-gray-600">成语接龙</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="6" Class="p-2">
+                            <MudCard Elevation="1" Class="text-center">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6">🔢</MudText>
+                                    <MudText Typo="Typo.body2" Class="text-gray-600">数学闯关</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                        <MudItem xs="6" Class="p-2">
+                            <MudCard Elevation="1" Class="text-center">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6">🌍</MudText>
+                                    <MudText Typo="Typo.body2" Class="text-gray-600">地理探索</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    </MudGrid>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
 <style>
-    .page-container { max-width: 900px; margin: 0 auto; padding: 20px; }
-    .page-header { margin-bottom: 24px; }
-    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
-    .empty-state {
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: white; border-radius: 16px; padding: 60px 40px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    }
-    .empty-icon { font-size: 64px; margin-bottom: 20px; }
-    .empty-state h3 { margin: 0 0 12px; color: #333; font-size: 24px; }
-    .empty-state p { margin: 0 0 32px; color: #888; font-size: 15px; }
-    .coming-soon-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; width: 100%; max-width: 500px; }
-    .coming-soon-item {
-        background: #f0f4f8; border-radius: 12px; padding: 16px; text-align: center;
-        font-size: 15px; color: #555; font-weight: 500;
-    }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 40px; }
 </style>

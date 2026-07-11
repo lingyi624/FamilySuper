@@ -1,0 +1,260 @@
+@page "/media-center"
+@inject IMediaItemService MediaSvc
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using FamilySuper.Host.WPF.Components.Dialogs
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🎬</span>
+                        <span>家庭媒体中心</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAdd" Variant="Variant.Filled">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加媒体
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4">
+                        <MudSelect Label="类型" @bind-Value="filterType" T="string?" Placeholder="全部" OnChange="LoadItems">
+                            <MudSelectItem T="string?" Value="null">全部</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("照片")">照片</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("视频")">视频</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("音频")">音频</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("文档")">文档</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudSelect Label="分类" @bind-Value="filterCategory" T="string?" Placeholder="全部" OnChange="LoadItems">
+                            <MudSelectItem T="string?" Value="null">全部</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("家庭合影")">家庭合影</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("旅行")">旅行</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("节日")">节日</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("日常")">日常</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("其他")">其他</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudCheckBox @bind-Value="favoriteOnly" Label="仅显示收藏" OnChange="LoadItems" Class="mt-2" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudTable Items="items" Hover="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>标题</MudTh>
+                        <MudTh>类型</MudTh>
+                        <MudTh>分类</MudTh>
+                        <MudTh>标签</MudTh>
+                        <MudTh>大小</MudTh>
+                        <MudTh>收藏</MudTh>
+                        <MudTh>操作</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd><MudText FontWeight="FontWeight.Bold">@context.Title</MudText></MudTd>
+                        <MudTd>
+                            <MudChip T="string" Color="@GetTypeColor(context.MediaType)" Size="Size.Small">@context.MediaType</MudChip>
+                        </MudTd>
+                        <MudTd>@(context.Category ?? "-")</MudTd>
+                        <MudTd>@(context.Tags ?? "-")</MudTd>
+                        <MudTd>@FormatSize(context.FileSize)</MudTd>
+                        <MudTd>
+                            <MudIconButton Icon="@(context.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                                           Color="@(context.IsFavorite ? Color.Warning : Color.Default)"
+                                           Size="Size.Small"
+                                           OnClick="() => ToggleFavorite(context.Id)" />
+                        </MudTd>
+                        <MudTd>
+                            <MudButtonGroup Size="Size.Small">
+                                <MudButton Color="Color.Info" OnClick="() => StartEdit(context)">
+                                    <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                                </MudButton>
+                                <MudButton Color="Color.Error" OnClick="() => Delete(context.Id)">
+                                    <MudIcon Icon="@Icons.Material.Filled.Delete" />
+                                </MudButton>
+                            </MudButtonGroup>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudAlert Severity="Severity.Info" Elevation="0">暂无媒体文件</MudAlert>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    @if (showForm)
+    {
+        <MudItem xs="12" Class="mt-4">
+            <MudCard Elevation="4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(editing.Id > 0 ? "编辑媒体" : "添加媒体")</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm Model="editing" @ref="_form" @bind-IsValid="_isFormValid">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="标题 *" @bind-Value="editing.Title" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="媒体类型" @bind-Value="editing.MediaType" T="string">
+                                    <MudSelectItem T="string" Value="@("照片")">照片</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("视频")">视频</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("音频")">音频</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("文档")">文档</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="分类" @bind-Value="editing.Category" T="string">
+                                    <MudSelectItem T="string" Value="@("家庭合影")">家庭合影</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("旅行")">旅行</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("节日")">节日</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("日常")">日常</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("其他")">其他</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="文件路径" @bind-Value="editing.FilePath" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="标签" @bind-Value="editing.Tags" Placeholder="逗号分隔" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="文件大小(字节)" @bind-Value="editing.FileSize" T="long" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker Label="拍摄/录制日期" @bind-Date="editing.TakenDate" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="描述" @bind-Value="editing.Description" Multiline="true" Rows="2" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudCheckBox @bind-Value="editing.IsFavorite" Label="收藏" />
+                            </MudItem>
+                        </MudGrid>
+                        <div class="mt-4">
+                            <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                            <MudButton Color="Color.Default" OnClick="CancelForm" Class="ml-2">取消</MudButton>
+                        </div>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private List<MediaItem> items = new();
+    private MediaItem editing = new();
+    private bool showForm;
+    private MudForm _form = default!;
+    private bool _isFormValid;
+    private string? filterType;
+    private string? filterCategory;
+    private bool favoriteOnly;
+
+    protected override async Task OnInitializedAsync() => await LoadItems();
+
+    private async Task LoadItems() => items = await MediaSvc.GetItemsAsync(filterType, filterCategory, favoriteOnly);
+
+    private static Color GetTypeColor(string type) => type switch
+    {
+        "照片" => Color.Info,
+        "视频" => Color.Warning,
+        "音频" => Color.Secondary,
+        _ => Color.Default
+    };
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
+        >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+        >= 1024 => $"{bytes / 1024.0:F1} KB",
+        _ => $"{bytes} B"
+    };
+
+    private void StartAdd()
+    {
+        editing = new MediaItem { MediaType = "照片", Category = "其他" };
+        showForm = true;
+    }
+
+    private void StartEdit(MediaItem item)
+    {
+        editing = new MediaItem
+        {
+            Id = item.Id, Title = item.Title, FilePath = item.FilePath, MediaType = item.MediaType,
+            Category = item.Category, Tags = item.Tags, FileSize = item.FileSize,
+            TakenDate = item.TakenDate, Description = item.Description,
+            IsFavorite = item.IsFavorite, MemberId = item.MemberId
+        };
+        showForm = true;
+    }
+
+    private void CancelForm() => showForm = false;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        try
+        {
+            if (editing.Id > 0)
+            {
+                await MediaSvc.UpdateAsync(editing);
+                Snackbar.Add("媒体信息已更新", Severity.Success);
+            }
+            else
+            {
+                await MediaSvc.AddAsync(editing);
+                Snackbar.Add("媒体已添加", Severity.Success);
+            }
+            showForm = false;
+            await LoadItems();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"保存失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Delete(long id)
+    {
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("确认删除");
+        var result = await dialog.Result;
+        if (result.Canceled) return;
+
+        try
+        {
+            await MediaSvc.DeleteAsync(id);
+            await LoadItems();
+            Snackbar.Add("媒体已删除", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"删除失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ToggleFavorite(long id)
+    {
+        try
+        {
+            await MediaSvc.ToggleFavoriteAsync(id);
+            await LoadItems();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"操作失败: {ex.Message}", Severity.Error);
+        }
+    }
+}

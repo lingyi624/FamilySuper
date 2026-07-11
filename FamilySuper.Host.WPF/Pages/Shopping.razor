@@ -1,0 +1,308 @@
+@page "/shopping"
+@inject IShoppingService ShopSvc
+@inject IRepository<FamilyMember> MemberRepo
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using FamilySuper.Host.WPF.Components.Dialogs
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🛒</span>
+                        <span>购物清单</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAdd" Variant="Variant.Filled">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加商品
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4">
+                        <MudSelect 
+                            Label="状态" 
+                            @bind-Value="filterStatus" 
+                            T="string?" 
+                            Placeholder="全部"
+                            OnChange="LoadItems">
+                            <MudSelectItem T="string?" Value="null">全部</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("Pending")">待购买</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("Purchased")">已购买</MudSelectItem>
+                            <MudSelectItem T="string?" Value="@("Cancelled")">已取消</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudSelect 
+                            Label="成员" 
+                            @bind-Value="filterMemberId" 
+                            T="long?" 
+                            Placeholder="全部"
+                            OnChange="LoadItems">
+                            <MudSelectItem T="long?" Value="null">全部</MudSelectItem>
+                            @foreach (var m in members)
+                            {
+                                <MudSelectItem T="long?" Value="m.Id">@m.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Color="Color.Default" OnClick="LoadSuggestions" Class="mt-2">
+                            <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Class="mr-1" />
+                            智能推荐
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+
+                @if (suggestions.Count > 0)
+                {
+                    <MudAlert Severity="Severity.Info" Elevation="0" Class="mb-4">
+                        <div class="d-flex align-items-center gap-2">
+                            <span><MudIcon Icon="@Icons.Material.Filled.Lightbulb" /></span>
+                            <span>建议购买:</span>
+                            @foreach (var s in suggestions)
+                            {
+                                <MudChip T="string" OnClick="() => QuickAdd(s)" Color="Color.Primary" Size="Size.Small">+ @s</MudChip>
+                            }
+                        </div>
+                    </MudAlert>
+                }
+
+                <MudTable Items="items" Hover="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>商品</MudTh>
+                        <MudTh>类别</MudTh>
+                        <MudTh>数量</MudTh>
+                        <MudTh>预估价格</MudTh>
+                        <MudTh>成员</MudTh>
+                        <MudTh>状态</MudTh>
+                        <MudTh>操作</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd><MudText FontWeight="FontWeight.Bold">@context.Name</MudText></MudTd>
+                        <MudTd>@(context.Category ?? "-")</MudTd>
+                        <MudTd>@context.Quantity @(context.Unit ?? "")</MudTd>
+                        <MudTd class="text-right">¥@(context.EstimatedPrice?.ToString("N2") ?? "-")</MudTd>
+                        <MudTd>@GetMemberName(context.MemberId)</MudTd>
+                        <MudTd>
+                            <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@GetStatusText(context.Status)</MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <MudButtonGroup Size="Size.Small">
+                                @if (context.Status == ShoppingStatus.Pending)
+                                {
+                                    <MudButton Color="Color.Success" OnClick="() => MarkPurchased(context.Id)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Check" />
+                                    </MudButton>
+                                    <MudButton Color="Color.Info" OnClick="() => StartEdit(context)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                                    </MudButton>
+                                    <MudButton Color="Color.Warning" OnClick="() => CancelItem(context.Id)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Cancel" />
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudButton Color="Color.Error" OnClick="() => Delete(context.Id)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Delete" />
+                                    </MudButton>
+                                }
+                            </MudButtonGroup>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudAlert Severity="Severity.Info" Elevation="0">购物清单为空</MudAlert>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    @if (showForm)
+    {
+        <MudItem xs="12" Class="mt-4">
+            <MudCard Elevation="4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(editing.Id > 0 ? "编辑商品" : "添加商品")</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm Model="editing" @ref="_form" @bind-IsValid="_isFormValid">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="名称 *" @bind-Value="editing.Name" Required="true" Placeholder="如:牛奶、纸巾" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="类别" @bind-Value="editing.Category" Placeholder="食品/日用品/数码" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="数量" @bind-Value="editing.Quantity" Min="1" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="单位" @bind-Value="editing.Unit" Placeholder="个/箱/瓶" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="预估价格" @bind-Value="editing.EstimatedPrice" Min="0" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="成员" @bind-Value="editing.MemberId" T="long?">
+                                    <MudSelectItem T="long?" Value="null">家庭</MudSelectItem>
+                                    @foreach (var m in members)
+                                    {
+                                        <MudSelectItem T="long?" Value="m.Id">@m.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="备注" @bind-Value="editing.Notes" Multiline="true" Rows="2" />
+                            </MudItem>
+                        </MudGrid>
+                        <div class="mt-4">
+                            <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                            <MudButton Color="Color.Default" OnClick="CancelForm" Class="ml-2">取消</MudButton>
+                        </div>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private List<ShoppingItem> items = new();
+    private List<FamilyMember> members = new();
+    private List<string> suggestions = new();
+    private ShoppingItem editing = new();
+    private bool showForm;
+    private MudForm _form = default!;
+    private bool _isFormValid;
+    private string? filterStatus;
+    private long? filterMemberId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        members = await MemberRepo.GetAllAsync();
+        await LoadItems();
+    }
+
+    private async Task LoadItems()
+    {
+        ShoppingStatus? statusFilter = filterStatus is not null && Enum.TryParse<ShoppingStatus>(filterStatus, true, out var s) ? s : null;
+        items = await ShopSvc.GetItemsAsync(statusFilter, filterMemberId);
+    }
+
+    private async Task LoadSuggestions()
+    {
+        suggestions = await ShopSvc.SuggestPurchasesAsync();
+    }
+
+    private string GetMemberName(long? memberId)
+        => memberId == null ? "家庭" : members.FirstOrDefault(m => m.Id == memberId)?.Name ?? "未知";
+
+    private Color GetStatusColor(ShoppingStatus status)
+        => status switch { ShoppingStatus.Pending => Color.Warning, ShoppingStatus.Purchased => Color.Success, _ => Color.Default };
+
+    private string GetStatusText(ShoppingStatus status)
+        => status switch { ShoppingStatus.Pending => "待购买", ShoppingStatus.Purchased => "已购买", _ => "已取消" };
+
+    private void StartAdd()
+    {
+        editing = new ShoppingItem { Quantity = 1 };
+        showForm = true;
+    }
+
+    private void QuickAdd(string name)
+    {
+        editing = new ShoppingItem { Name = name, Quantity = 1 };
+        showForm = true;
+    }
+
+    private void StartEdit(ShoppingItem item)
+    {
+        editing = new ShoppingItem
+        {
+            Id = item.Id, Name = item.Name, Category = item.Category,
+            Quantity = item.Quantity, Unit = item.Unit,
+            EstimatedPrice = item.EstimatedPrice, MemberId = item.MemberId,
+            Notes = item.Notes, Status = item.Status
+        };
+        showForm = true;
+    }
+
+    private void CancelForm() => showForm = false;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        if (editing.Id > 0) 
+        {
+            await ShopSvc.UpdateAsync(editing);
+            Snackbar.Add("商品信息已更新", Severity.Success);
+        }
+        else 
+        {
+            await ShopSvc.AddAsync(editing);
+            Snackbar.Add("商品已添加到购物清单", Severity.Success);
+        }
+        showForm = false;
+        await LoadItems();
+    }
+
+    private async Task Delete(long id)
+    {
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("确认删除");
+        var result = await dialog.Result;
+        if (result.Canceled) return;
+
+        try
+        {
+            await ShopSvc.DeleteAsync(id);
+            await LoadItems();
+            Snackbar.Add("商品已删除", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"删除失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task MarkPurchased(long id)
+    {
+        try
+        {
+            await ShopSvc.MarkPurchasedAsync(id);
+            await LoadItems();
+            Snackbar.Add("已标记为已购买", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"更新失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CancelItem(long id)
+    {
+        try
+        {
+            var item = await ShopSvc.GetByIdAsync(id);
+            if (item is not null)
+            {
+                item.Status = ShoppingStatus.Cancelled;
+                await ShopSvc.UpdateAsync(item);
+                await LoadItems();
+                Snackbar.Add("已取消该商品", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"操作失败: {ex.Message}", Severity.Error);
+        }
+    }
+}

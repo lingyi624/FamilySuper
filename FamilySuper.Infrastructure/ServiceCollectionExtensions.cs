@@ -28,6 +28,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBillService, BillService>();
         services.AddScoped<IStudyService, StudyService>();
         services.AddScoped<ISurveyService, SurveyService>();
+        services.AddScoped<IShoppingService, ShoppingService>();
+        services.AddScoped<IElderlyCareService, ElderlyCareService>();
+        services.AddScoped<ICareReminderService, CareReminderService>();
+        services.AddScoped<IHomeItemService, HomeItemService>();
+        services.AddScoped<IMediaItemService, MediaItemService>();
+        services.AddScoped<IMedicalGuideService, MedicalGuideService>();
+        services.AddScoped<IMeetingNoteService, MeetingNoteService>();
+        services.AddScoped<IPriceCompareService, PriceCompareService>();
+        services.AddScoped<IVirtualSceneService, VirtualSceneService>();
+        services.AddScoped<IAnnotationService, AnnotationService>();
+        services.AddScoped<IModelReconstructionService, ModelReconstructionService>();
+        services.AddScoped<IPhotoTimelineService, PhotoTimelineService>();
 
         return services;
     }

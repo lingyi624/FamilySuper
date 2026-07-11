@@ -41,6 +41,8 @@ public static class ApiBootstrap
         builder.Services.AddScoped<IBillService, BillService>();
         builder.Services.AddScoped<IStudyService, StudyService>();
         builder.Services.AddScoped<ISurveyService, SurveyService>();
+        builder.Services.AddScoped<IShoppingService, ShoppingService>();
+        builder.Services.AddScoped<IElderlyCareService, ElderlyCareService>();
 
         builder.Services.AddLogging(b => b.AddProvider(rootProvider.GetService<ILoggerProvider>()!));
 
@@ -62,6 +64,8 @@ public static class ApiBootstrap
         StudyEndpoints.Map(app);
         SurveyEndpoints.Map(app);
         NotificationEndpoints.Map(app);
+        ShoppingEndpoints.MapShoppingEndpoints(app);
+        ElderlyCareEndpoints.MapElderlyCareEndpoints(app);
 
         return app;
     }

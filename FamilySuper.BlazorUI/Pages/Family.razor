@@ -25,7 +25,7 @@
                     <tr>
                         <td>@m.Name</td>
                         <td>@m.Role</td>
-                        <td>@(m.Gender?.ToString() ?? "-")</td>
+                        <td>@(m.Gender?.ToString() == "Male" ? "男" : m.Gender?.ToString() == "Female" ? "女" : "未知")</td>
                         <td>@(m.BirthDate?.ToString("yyyy-MM-dd") ?? "-")</td>
                         <td>@(m.Phone ?? "-")</td>
                         <td class="actions">

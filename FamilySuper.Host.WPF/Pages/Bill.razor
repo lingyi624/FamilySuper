@@ -1,121 +1,168 @@
 @page "/bill"
 @inject IBillService BillSvc
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using FamilySuper.Host.WPF.Components.Dialogs
 
-<div class="page-container">
-    <div class="page-header">
-        <h2>🧾 账单提醒</h2>
-        <button class="btn btn-primary" @onclick="StartAdd">+ 添加账单</button>
-    </div>
-
-    @if (dueSoon.Count > 0)
-    {
-        <div class="section reminder-section">
-            <h3>⏰ 即将到期 (@dueSoon.Count)</h3>
-            <div class="reminder-list">
-                @foreach (var b in dueSoon)
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🧾</span>
+                        <span>账单提醒</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAdd" Variant="Variant.Filled">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加账单
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                @if (dueSoon.Count > 0)
                 {
-                    var days = (b.NextDueDate - DateTime.UtcNow).Days;
-                    <div class="reminder-card @(days < 0 ? "overdue" : days <= 2 ? "urgent" : "")">
-                        <div class="reminder-info">
-                            <strong>@b.Name</strong>
-                            <span class="reminder-meta">
-                                ¥@b.Amount.ToString("N2") · @(b.Category ?? "未分类") ·
-                                @(days < 0 ? $"已逾期 {-days} 天" : days == 0 ? "今天到期" : $"{days} 天后到期")
-                            </span>
+                    <MudAlert Severity="Severity.Warning" Class="mb-4">
+                        <div class="d-flex justify-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span><MudIcon Icon="@Icons.Material.Filled.Alarm" /></span>
+                                <span>即将到期 (@dueSoon.Count)</span>
+                            </div>
                         </div>
-                        <button class="btn btn-sm btn-success" @onclick="() => MarkPaid(b.Id)">标记已付</button>
+                    </MudAlert>
+                    <div class="reminder-list">
+                        @foreach (var b in dueSoon)
+                        {
+                            var days = (b.NextDueDate - DateTime.UtcNow).Days;
+                            <MudCard 
+                                Elevation="2" 
+                                Class="@(days < 0 ? "overdue-card" : days <= 2 ? "urgent-card" : "reminder-card")">
+                                <MudCardContent>
+                                    <div class="d-flex justify-between align-items-center">
+                                        <div>
+                                            <MudText Typo="Typo.h6" FontWeight="FontWeight.Bold">@b.Name</MudText>
+                                            <MudText Typo="Typo.body2" Class="text-gray-500">
+                                                ¥@b.Amount.ToString("N2") · @(b.Category ?? "未分类") ·
+                                                @(days < 0 ? $"已逾期 {-days} 天" : days == 0 ? "今天到期" : $"{days} 天后到期")
+                                            </MudText>
+                                        </div>
+                                        <MudButton Color="Color.Success" Size="Size.Small" OnClick="() => MarkPaid(b.Id)" Variant="Variant.Filled">
+                                            标记已付
+                                        </MudButton>
+                                    </div>
+                                </MudCardContent>
+                            </MudCard>
+                        }
                     </div>
                 }
-            </div>
-        </div>
-    }
 
-    <div class="section">
-        <div class="filter-bar">
-            <label class="checkbox-label">
-                <InputCheckbox @bind-Value="showInactive" />
-                <span>显示已停用</span>
-            </label>
-        </div>
-        <table class="data-table">
-            <thead>
-                <tr><th>账单名称</th><th>金额</th><th>分类</th><th>周期</th><th>下次到期</th><th>状态</th><th>操作</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var b in bills)
-                {
-                    <tr>
-                        <td><strong>@b.Name</strong></td>
-                        <td class="amount">¥@b.Amount.ToString("N2")</td>
-                        <td>@(b.Category ?? "-")</td>
-                        <td>@GetCycleName(b.CycleType)</td>
-                        <td>@b.NextDueDate.ToString("yyyy-MM-dd")</td>
-                        <td>
-                            @if (b.IsPaid)
-                            { <span class="tag tag-gray">已付</span> }
-                            else if (b.NextDueDate < DateTime.UtcNow)
-                            { <span class="tag tag-red">逾期</span> }
-                            else
-                            { <span class="tag tag-green">待付</span> }
-                        </td>
-                        <td class="actions">
-                            @if (!b.IsPaid)
-                            {
-                                <button class="btn btn-sm btn-success" @onclick="() => MarkPaid(b.Id)">已付</button>
-                            }
-                            <button class="btn btn-sm" @onclick="() => StartEdit(b)">编辑</button>
-                            <button class="btn btn-sm btn-danger" @onclick="() => Delete(b.Id)">删除</button>
-                        </td>
-                    </tr>
-                }
-                @if (bills.Count == 0)
-                {
-                    <tr><td colspan="7" class="empty-row">暂无账单</td></tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                <MudCheckBox @bind-Value="showInactive" Label="显示已停用" OnChange="LoadAll" Class="mt-4 mb-4" />
+
+                <MudTable Items="bills" Hover="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>账单名称</MudTh>
+                        <MudTh>金额</MudTh>
+                        <MudTh>分类</MudTh>
+                        <MudTh>周期</MudTh>
+                        <MudTh>下次到期</MudTh>
+                        <MudTh>状态</MudTh>
+                        <MudTh>操作</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd><MudText FontWeight="FontWeight.Bold">@context.Name</MudText></MudTd>
+                        <MudTd Class="text-right"><MudText Typo="Typo.body2" FontWeight="FontWeight.Bold">¥@context.Amount.ToString("N2")</MudText></MudTd>
+                        <MudTd>@(context.Category ?? "-")</MudTd>
+                        <MudTd>@GetCycleName(context.CycleType)</MudTd>
+                        <MudTd>@context.NextDueDate.ToString("yyyy-MM-dd")</MudTd>
+                        <MudTd>
+                            <MudChip T="string" Color="@GetStatusColor(context)" Size="Size.Small">
+                                @GetStatusLabel(context)
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <MudButtonGroup Size="Size.Small">
+                                @if (!context.IsPaid)
+                                {
+                                    <MudButton Color="Color.Success" OnClick="() => MarkPaid(context.Id)">已付</MudButton>
+                                }
+                                <MudButton Color="Color.Info" OnClick="() => StartEdit(context)">
+                                    <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                </MudButton>
+                                <MudButton Color="Color.Error" OnClick="() => Delete(context.Id)">
+                                    <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
+                                </MudButton>
+                            </MudButtonGroup>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudAlert Severity="Severity.Info" Elevation="0">暂无账单</MudAlert>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 
     @if (showForm)
     {
-        <div class="form-card">
-            <h3>@(editing.Id > 0 ? "编辑账单" : "添加账单")</h3>
-            <EditForm Model="editing" OnValidSubmit="Save">
-                <div class="form-row"><label>名称 *</label><InputText @bind-Value="editing.Name" placeholder="如:电费、信用卡还款" /></div>
-                <div class="form-row"><label>金额 *</label><InputNumber @bind-Value="editing.Amount" /></div>
-                <div class="form-row"><label>分类</label><InputText @bind-Value="editing.Category" placeholder="水电煤/物业/信用卡" /></div>
-                <div class="form-row">
-                    <label>周期</label>
-                    <InputSelect @bind-Value="editing.CycleType">
-                        <option value="Once">一次性</option>
-                        <option value="Monthly">每月</option>
-                        <option value="Quarterly">每季</option>
-                        <option value="Yearly">每年</option>
-                    </InputSelect>
-                </div>
-                <div class="form-row"><label>开始日期</label><InputDate @bind-Value="editing.StartDate" /></div>
-                <div class="form-row"><label>备注</label><InputTextArea @bind-Value="editing.Notes" /></div>
-                <div class="form-row">
-                    <label class="checkbox-label">
-                        <InputCheckbox @bind-Value="editing.IsActive" />
-                        <span>启用此账单</span>
-                    </label>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">保存</button>
-                    <button type="button" class="btn" @onclick="CancelForm">取消</button>
-                </div>
-            </EditForm>
-        </div>
+        <MudItem xs="12" Class="mt-4">
+            <MudCard Elevation="4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(editing.Id > 0 ? "编辑账单" : "添加账单")</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm @ref="_form" @bind-IsValid="_isFormValid" Model="editing">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="名称 *" @bind-Value="editing.Name" Required="true" Placeholder="如:电费、信用卡还款" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="金额 *" @bind-Value="editing.Amount" T="decimal" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="分类" @bind-Value="editing.Category" Placeholder="水电煤/物业/信用卡" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="周期" @bind-Value="editing.CycleType" T="FamilySuper.Core.Enums.BillCycleType">
+                                    <MudSelectItem T="FamilySuper.Core.Enums.BillCycleType" Value="FamilySuper.Core.Enums.BillCycleType.Once">一次性</MudSelectItem>
+                                    <MudSelectItem T="FamilySuper.Core.Enums.BillCycleType" Value="FamilySuper.Core.Enums.BillCycleType.Monthly">每月</MudSelectItem>
+                                    <MudSelectItem T="FamilySuper.Core.Enums.BillCycleType" Value="FamilySuper.Core.Enums.BillCycleType.Quarterly">每季</MudSelectItem>
+                                    <MudSelectItem T="FamilySuper.Core.Enums.BillCycleType" Value="FamilySuper.Core.Enums.BillCycleType.Yearly">每年</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker Label="开始日期" @bind-Date="startDateValue" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="备注" @bind-Value="editing.Notes" Multiline="true" Rows="2" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudCheckBox @bind-Value="editing.IsActive" Label="启用此账单" />
+                            </MudItem>
+                        </MudGrid>
+                        <div class="mt-4">
+                            <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                            <MudButton Color="Color.Default" OnClick="CancelForm" Class="ml-2">取消</MudButton>
+                        </div>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
     }
-</div>
+</MudGrid>
 
 @code {
+    private MudForm _form = default!;
+    private bool _isFormValid;
     private List<FamilySuper.Core.Entities.BillReminder> bills = new();
     private List<FamilySuper.Core.Entities.BillReminder> dueSoon = new();
     private bool showInactive = false;
     private bool showForm = false;
     private FamilySuper.Core.Entities.BillReminder editing = new();
+    private DateTime? startDateValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -145,6 +192,7 @@
             IsActive = true,
             Amount = 0
         };
+        startDateValue = editing.StartDate;
         showForm = true;
     }
 
@@ -156,6 +204,7 @@
             CycleType = b.CycleType, StartDate = b.StartDate, IsActive = b.IsActive,
             MemberId = b.MemberId, Notes = b.Notes
         };
+        startDateValue = b.StartDate;
         showForm = true;
     }
 
@@ -163,61 +212,80 @@
 
     private async Task Save()
     {
-        if (editing.Id > 0) await BillSvc.UpdateBillAsync(editing);
-        else await BillSvc.AddBillAsync(editing);
-        showForm = false;
-        await LoadAll();
+        await _form.ValidateAsync();
+        if (!_isFormValid) return;
+        try
+        {
+            if (startDateValue.HasValue) editing.StartDate = startDateValue.Value;
+            if (editing.Id > 0)
+            {
+                await BillSvc.UpdateBillAsync(editing);
+                Snackbar.Add("账单已更新", Severity.Success);
+            }
+            else
+            {
+                await BillSvc.AddBillAsync(editing);
+                Snackbar.Add("账单已添加", Severity.Success);
+            }
+            showForm = false;
+            await LoadAll();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"保存失败: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task Delete(long id)
     {
-        await BillSvc.DeleteBillAsync(id);
-        await LoadAll();
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("确认删除");
+        var result = await dialog.Result;
+        if (result.Canceled) return;
+
+        try
+        {
+            await BillSvc.DeleteBillAsync(id);
+            await LoadAll();
+            Snackbar.Add("账单已删除", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"删除失败: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task MarkPaid(long id)
     {
-        await BillSvc.MarkPaidAsync(id);
-        await LoadAll();
+        try
+        {
+            await BillSvc.MarkPaidAsync(id);
+            await LoadAll();
+            Snackbar.Add("已标记为已付", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"操作失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private static Color GetStatusColor(FamilySuper.Core.Entities.BillReminder b)
+    {
+        if (b.IsPaid) return Color.Default;
+        if (b.NextDueDate < DateTime.UtcNow) return Color.Error;
+        return Color.Success;
+    }
+
+    private static string GetStatusLabel(FamilySuper.Core.Entities.BillReminder b)
+    {
+        if (b.IsPaid) return "已付";
+        if (b.NextDueDate < DateTime.UtcNow) return "逾期";
+        return "待付";
     }
 }
 
 <style>
-    .page-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .page-header h2 { margin: 0; color: #333; font-size: 22px; }
-    .section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
-    .section h3 { margin: 0 0 12px; font-size: 16px; color: #333; }
-    .filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-    .checkbox-label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px; color: #666; }
-    .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    .data-table th { text-align: left; padding: 10px 12px; background: #f5f7fa; color: #666; font-weight: 600; border-bottom: 2px solid #e0e0e0; }
-    .data-table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
-    .data-table .empty-row { text-align: center; color: #999; padding: 24px; }
-    .data-table .actions { display: flex; gap: 6px; }
-    .data-table .amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
-    .tag { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
-    .tag-green { background: #e8f5e9; color: #2e7d32; }
-    .tag-gray { background: #f5f5f5; color: #999; }
-    .tag-red { background: #ffebee; color: #c62828; }
-    .btn { padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; color: #555; }
-    .btn:hover { background: #f0f4f8; }
-    .btn-primary { background: #1976d2; color: white; border-color: #1976d2; }
-    .btn-danger { color: #d32f2f; border-color: #ffcdd2; }
-    .btn-success { background: #4caf50; color: white; border-color: #4caf50; }
-    .btn-sm { padding: 4px 10px; font-size: 12px; }
-    .form-card { background: white; border-radius: 12px; padding: 20px; margin-top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 2px solid #e3f2fd; }
-    .form-card h3 { margin: 0 0 16px; font-size: 17px; }
-    .form-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .form-row label { width: 80px; font-size: 14px; color: #555; }
-    .form-row input, .form-row select, .form-row textarea { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
-    .form-row textarea { min-height: 60px; resize: vertical; }
-    .form-actions { display: flex; gap: 8px; margin-top: 16px; }
-    .reminder-section { border: 2px solid #fff3cd; background: #fffbeb; }
     .reminder-list { display: flex; flex-direction: column; gap: 8px; }
-    .reminder-card { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: white; border-radius: 8px; border: 1px solid #ffe082; }
-    .reminder-card.overdue { border-color: #ef9a9a; background: #fef2f2; }
-    .reminder-card.urgent { border-color: #ffab91; background: #fff3e0; }
-    .reminder-info { display: flex; flex-direction: column; gap: 2px; }
-    .reminder-meta { font-size: 12px; color: #888; }
+    .reminder-card { border-left: 4px solid #ffb300; }
+    .urgent-card { border-left: 4px solid #ff7043; background: #fff8e1; }
+    .overdue-card { border-left: 4px solid #ef5350; background: #ffebee; }
 </style>

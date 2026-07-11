@@ -1,8 +1,9 @@
 @inject Services.ModeStateContainer ModeState
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <div class="nav-menu">
-    <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+    <NavLink class="nav-item" href="/" Match="NavLinkMatch.All">
         <span class="nav-icon">🏠</span>
         <span>首页</span>
     </NavLink>
@@ -17,69 +18,159 @@
 
     @if (ModeState.CurrentMode == AppMode.Adult)
     {
-        <div class="nav-section">大人专属</div>
-        <NavLink class="nav-item" href="family">
-            <span class="nav-icon">👨‍👩‍👧</span>
-            <span>家庭信息</span>
-        </NavLink>
-        <NavLink class="nav-item" href="finance">
-            <span class="nav-icon">💰</span>
-            <span>财务管理</span>
-        </NavLink>
-        <NavLink class="nav-item" href="budget">
-            <span class="nav-icon">📊</span>
-            <span>预算管理</span>
-        </NavLink>
-        <NavLink class="nav-item" href="bill">
-            <span class="nav-icon">🧾</span>
-            <span>账单提醒</span>
-        </NavLink>
-        <NavLink class="nav-item" href="health">
-            <span class="nav-icon">❤️</span>
-            <span>健康档案</span>
-        </NavLink>
-        <NavLink class="nav-item" href="medication">
-            <span class="nav-icon">💊</span>
-            <span>用药管理</span>
-        </NavLink>
-        <NavLink class="nav-item" href="symptom">
-            <span class="nav-icon">🩺</span>
-            <span>症状自诊</span>
-        </NavLink>
-        <NavLink class="nav-item" href="work">
-            <span class="nav-icon">💼</span>
-            <span>工作日程</span>
-        </NavLink>
-        <NavLink class="nav-item" href="survey">
-            <span class="nav-icon">📋</span>
-            <span>家庭调研</span>
-        </NavLink>
-        <NavLink class="nav-item" href="doc-assistant">
-            <span class="nav-icon">📝</span>
-            <span>文档助手</span>
-        </NavLink>
-        <NavLink class="nav-item" href="file-organizer">
-            <span class="nav-icon">📁</span>
-            <span>文件整理</span>
-        </NavLink>
+        <MudNavGroup Text="家庭管理" Icon="@Icons.Material.Filled.People" Expanded="true">
+            <NavLink class="nav-item sub" href="family">
+                <span class="nav-icon">👨‍👩‍👧</span>
+                <span>家庭信息</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="genealogy">
+                <span class="nav-icon">🌳</span>
+                <span>家庭族谱</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="survey">
+                <span class="nav-icon">📋</span>
+                <span>家庭调研</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="home-items">
+                <span class="nav-icon">🏠</span>
+                <span>物品管理</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="media-center">
+                <span class="nav-icon">🎬</span>
+                <span>媒体中心</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="photo-timeline">
+                <span class="nav-icon">📅</span>
+                <span>照片时间墙</span>
+            </NavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Text="财务管理" Icon="@Icons.Material.Filled.AttachMoney" Expanded="true">
+            <NavLink class="nav-item sub" href="finance">
+                <span class="nav-icon">💰</span>
+                <span>收支记录</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="budget">
+                <span class="nav-icon">📊</span>
+                <span>预算管理</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="financial-report">
+                <span class="nav-icon">📈</span>
+                <span>财务报告</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="bill">
+                <span class="nav-icon">🧾</span>
+                <span>账单提醒</span>
+            </NavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Text="购物管理" Icon="@Icons.Material.Filled.ShoppingCart" Expanded="true">
+            <NavLink class="nav-item sub" href="shopping">
+                <span class="nav-icon">🛒</span>
+                <span>购物清单</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="purchase-advice">
+                <span class="nav-icon">💡</span>
+                <span>采购建议</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="price-compare">
+                <span class="nav-icon">🔍</span>
+                <span>比价助手</span>
+            </NavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Text="健康管理" Icon="@Icons.Material.Filled.LocalHospital" Expanded="true">
+            <NavLink class="nav-item sub" href="health">
+                <span class="nav-icon">❤️</span>
+                <span>健康档案</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="medication">
+                <span class="nav-icon">💊</span>
+                <span>用药管理</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="symptom">
+                <span class="nav-icon">🩺</span>
+                <span>症状自诊</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="medical-guide">
+                <span class="nav-icon">🏥</span>
+                <span>就医指南</span>
+            </NavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Text="养老关怀" Icon="@Icons.Material.Filled.Elderly" Expanded="true">
+            <NavLink class="nav-item sub" href="elderly-care">
+                <span class="nav-icon">🏥</span>
+                <span>养老关怀</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="care-reminder">
+                <span class="nav-icon">🔔</span>
+                <span>关怀提醒</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="virtual-scene">
+                <span class="nav-icon">🏞️</span>
+                <span>家乡实景</span>
+            </NavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Text="工作管理" Icon="@Icons.Material.Filled.Work" Expanded="true">
+            <NavLink class="nav-item sub" href="work">
+                <span class="nav-icon">💼</span>
+                <span>工作日程</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="meeting-assistant">
+                <span class="nav-icon">📋</span>
+                <span>会议助手</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="doc-assistant">
+                <span class="nav-icon">📝</span>
+                <span>文档助手</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="file-organizer">
+                <span class="nav-icon">📁</span>
+                <span>文件整理</span>
+            </NavLink>
+        </MudNavGroup>
     }
     else
     {
-        <div class="nav-section">儿童乐园</div>
-        <NavLink class="nav-item" href="education">
-            <span class="nav-icon">📚</span>
-            <span>学习辅导</span>
-        </NavLink>
-        <NavLink class="nav-item" href="study-plan">
-            <span class="nav-icon">📝</span>
-            <span>学习计划</span>
-        </NavLink>
-        <NavLink class="nav-item" href="games">
-            <span class="nav-icon">🎮</span>
-            <span>互动游戏</span>
-        </NavLink>
+        <MudNavGroup Text="学习教育" Icon="@Icons.Material.Filled.School" Expanded="true">
+            <NavLink class="nav-item sub" href="education">
+                <span class="nav-icon">📚</span>
+                <span>学习辅导</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="study-plan">
+                <span class="nav-icon">📝</span>
+                <span>学习计划</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="games">
+                <span class="nav-icon">🎮</span>
+                <span>互动游戏</span>
+            </NavLink>
+            <NavLink class="nav-item sub" href="entertainment">
+                <span class="nav-icon">🎬</span>
+                <span>娱乐推荐</span>
+            </NavLink>
+        </MudNavGroup>
     }
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        ModeState.OnChange += HandleModeChange;
+    }
+
+    private void HandleModeChange()
+    {
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ModeState.OnChange -= HandleModeChange;
+    }
+}
 
 <style>
     .nav-menu {
@@ -98,6 +189,10 @@
         transition: all 0.15s ease;
         border-left: 3px solid transparent;
     }
+    .nav-item.sub {
+        padding-left: 36px;
+        font-size: 13px;
+    }
     .nav-item:hover {
         background: #f0f4f8;
         color: #1976d2;
@@ -112,13 +207,5 @@
         font-size: 18px;
         width: 24px;
         text-align: center;
-    }
-    .nav-section {
-        margin-top: 16px;
-        padding: 8px 20px 4px;
-        font-size: 11px;
-        color: #999;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 </style>

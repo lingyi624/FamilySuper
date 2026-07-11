@@ -1,0 +1,133 @@
+@page "/price-compare"
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Class="d-flex align-center gap-2">
+                        <span>🔍</span>
+                        <span>比价助手</span>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Color="Color.Primary" OnClick="StartAdd" Variant="Variant.Filled">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />
+                        添加比价
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="搜索商品" @bind-Value="searchText" Placeholder="输入商品名称" OnChange="LoadItems" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudButton Color="Color.Default" OnClick="LoadLowestPrices" Class="mt-2">
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Class="mr-1" />
+                            最低价汇总
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+
+                <MudTable Items="items" Hover="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>商品名称</MudTh>
+                        <MudTh>分类</MudTh>
+                        <MudTh>商店</MudTh>
+                        <MudTh>价格</MudTh>
+                        <MudTh>单位</MudTh>
+                        <MudTh>最低价</MudTh>
+                        <MudTh>日期</MudTh>
+                        <MudTh>操作</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd><MudText FontWeight="FontWeight.Bold">@context.ProductName</MudText></MudTd>
+                        <MudTd>@(context.Category ?? "-")</MudTd>
+                        <MudTd>@context.StoreName</MudTd>
+                        <MudTd Class="text-right"><MudText Typo="Typo.body2" FontWeight="FontWeight.Bold">¥@context.Price.ToString("N2")</MudText></MudTd>
+                        <MudTd>@(context.Unit ?? "-")</MudTd>
+                        <MudTd>
+                            @if (context.IsLowest)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small">最低价</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd>@context.CompareDate.ToString("yyyy-MM-dd")</MudTd>
+                        <MudTd>
+                            <MudButtonGroup Size="Size.Small">
+                                <MudButton Color="Color.Info" OnClick="() => StartEdit(context)">
+                                    <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                                </MudButton>
+                                <MudButton Color="Color.Error" OnClick="() => Delete(context.Id)">
+                                    <MudIcon Icon="@Icons.Material.Filled.Delete" />
+                                </MudButton>
+                            </MudButtonGroup>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudAlert Severity="Severity.Info" Elevation="0">暂无比价记录</MudAlert>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    @if (showForm)
+    {
+        <MudItem xs="12" Class="mt-4">
+            <MudCard Elevation="4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@(editing.Id > 0 ? "编辑比价记录" : "添加比价记录")</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm Model="editing" @ref="_form" @bind-IsValid="_isFormValid">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="商品名称 *" @bind-Value="editing.ProductName" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect Label="分类" @bind-Value="editing.Category" T="string">
+                                    <MudSelectItem T="string" Value="@("食品")">食品</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("日用品")">日用品</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("数码")">数码</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("家电")">家电</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("衣物")">衣物</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("其他")">其他</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="商店/平台 *" @bind-Value="editing.StoreName" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField Label="价格 *" @bind-Value="editing.Price" T="decimal" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="单位" @bind-Value="editing.Unit" Placeholder="个/箱/件" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker Label="比价日期" @bind-Date="compareDateValue" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="链接" @bind-Value="editing.Url" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudCheckBox @bind-Value="editing.IsLowest" Label="标记为最低价" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="备注" @bind-Value="editing.Notes" Multiline="true" Rows="2" />
+                            </MudItem>
+                        </MudGrid>
+                        <div class="mt-4">
+                            <MudButton Color="Color.Primary" OnClick="Save" Disabled="@(!_isFormValid)" Variant="Variant.Filled">保存</MudButton>
+                            <MudButton Color="Color.Default" OnClick="CancelForm" Class="ml-2">取消</MudButton>
+                        </div>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+
