@@ -30,3 +30,4 @@ Desktop.ini
 *.tmp
 *.bak
 /FamilySuper.API/appsettings.json
+/FamilySuper.Host.WPF/appsettings.json
