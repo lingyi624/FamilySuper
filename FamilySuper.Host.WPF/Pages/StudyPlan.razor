@@ -322,7 +322,7 @@
         => percent >= 80 ? "#22c55e" : percent >= 50 ? "#f59e0b" : "#9ca3af";
 
     private Color GetCompletionColor(string completion)
-        => completion switch { "completed" => Color.Success, "partial" => Color.Warning, _ => Color.Error };
+        => completion switch { "completed" => Color.Info, "partial" => Color.Warning, _ => Color.Error };
 
     private void StartAddPlan()
     {

@@ -15,6 +15,7 @@ public class FamilyDbContext : DbContext
     }
 
     public DbSet<FamilyMember> FamilyMembers => Set<FamilyMember>();
+    public DbSet<Marriage> Marriages => Set<Marriage>();
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
     public DbSet<Certificate> Certificates => Set<Certificate>();
     public DbSet<WorkTask> WorkTasks => Set<WorkTask>();
@@ -64,6 +65,22 @@ public class FamilyDbContext : DbContext
             e.Property(x => x.Key).IsRequired().HasMaxLength(100);
             e.Property(x => x.Category).HasMaxLength(50);
             e.HasQueryFilter(x => !x.IsDeleted);
+        });
+
+        modelBuilder.Entity<Marriage>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.MemberId);
+            e.HasIndex(x => x.SpouseId);
+            e.HasQueryFilter(x => !x.IsDeleted);
+            e.HasOne(x => x.Member)
+                .WithMany()
+                .HasForeignKey(x => x.MemberId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Spouse)
+                .WithMany()
+                .HasForeignKey(x => x.SpouseId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Certificate>(e =>

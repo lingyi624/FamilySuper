@@ -45,7 +45,7 @@ public class ModelReconstructionService : IModelReconstructionService
     private static string FindColmapPath()
     {
         string[] possiblePaths = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? new[] { @"C:\Program Files\COLMAP\colmap.exe", @"C:\COLMAP\colmap.exe", "./colmap.exe" }
+            ? new[] { @"D:\colmap-x64-windows-nocuda\COLMAP.bat", @"C:\COLMAP\colmap.exe", "./colmap.exe" }
             : new[] { "/usr/local/bin/colmap", "/usr/bin/colmap", "./colmap" };
 
         foreach (var path in possiblePaths)
@@ -165,13 +165,13 @@ public class ModelReconstructionService : IModelReconstructionService
                 return result;
             }
 
-            UpdateStatus(sceneId, true, 20, "导入照片...", startTime);
+            UpdateStatus(sceneId, true, 20, "特征提取...", startTime);
 
-            if (!await RunColmapCommand($"image_extractor --database_path {databasePath} --image_path \"{scene.PhotoDirectory}\"", cancellationToken))
+            if (!await RunColmapCommand($"feature_extractor --database_path {databasePath} --image_path \"{scene.PhotoDirectory}\"", cancellationToken))
             {
                 result.Success = false;
-                result.ErrorMessage = "导入照片失败";
-                UpdateStatus(sceneId, false, 0, "导入照片失败", startTime);
+                result.ErrorMessage = "特征提取失败";
+                UpdateStatus(sceneId, false, 0, "特征提取失败", startTime);
                 return result;
             }
 
@@ -197,7 +197,7 @@ public class ModelReconstructionService : IModelReconstructionService
 
             UpdateStatus(sceneId, true, 60, "稠密重建...", startTime);
 
-            if (!await RunColmapCommand($"dense_stereo --workspace_path {sceneDir} --workspace_format COLMAP --input_path {outputDir} --output_path {denseDir}", cancellationToken))
+            if (!await RunColmapCommand($"patch_match_stereo --workspace_path {sceneDir} --workspace_format COLMAP --input_path {outputDir} --output_path {denseDir}", cancellationToken))
             {
                 result.Success = false;
                 result.ErrorMessage = "稠密重建失败";
@@ -285,8 +285,8 @@ public class ModelReconstructionService : IModelReconstructionService
             var error = await process.StandardError.ReadToEndAsync(cancellationToken);
             await process.WaitForExitAsync(cancellationToken);
 
-            if (!string.IsNullOrEmpty(output)) _logger.LogDebug("COLMAP输出: {Output}", output);
-            if (!string.IsNullOrEmpty(error)) _logger.LogWarning("COLMAP错误: {Error}", error);
+            if (!string.IsNullOrEmpty(output)) _logger.LogInformation("COLMAP输出: {Output}", output);
+            if (!string.IsNullOrEmpty(error)) _logger.LogError("COLMAP错误: {Error}", error);
 
             return process.ExitCode == 0;
         }

@@ -73,6 +73,13 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         };
+
+        window.triggerFileUpload = function (elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.click();
+            }
+        };
     </script>
 </body>
 </html>

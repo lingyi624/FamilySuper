@@ -1,5 +1,6 @@
 @page "/family"
 @inject IRepository<FamilyMember> MemberRepo
+@inject IRepository<Marriage> MarriageRepo
 @inject ICertificateService CertService
 @inject IOcrService Ocr
 @inject Services.ModeStateContainer ModeState
@@ -70,6 +71,22 @@
                 <MudCardContent>
                     <MudForm Model="editingMember" @ref="_form" @bind-IsValid="_isFormValid">
                         <MudGrid>
+                            <MudItem xs="12" sm="6" Class="d-flex justify-center">
+                                <div class="avatar-container">
+                                    <div class="avatar-preview">
+                                        @if (!string.IsNullOrEmpty(editingMember?.AvatarPath) && File.Exists(editingMember.AvatarPath))
+                                        {
+                                            <img src="@GetAvatarUrl(editingMember.AvatarPath)" alt="头像" class="avatar-image" />
+                                        }
+                                        else
+                                        {
+                                            <span class="avatar-placeholder">@GetGenderIcon(editingMember)</span>
+                                        }
+                                    </div>
+                                    <InputFile OnChange="OnAvatarUpload" accept="image/*" class="avatar-upload" />
+                                    <MudText Typo="Typo.caption" Class="text-center mt-2 text-gray-500">点击上传头像</MudText>
+                                </div>
+                            </MudItem>
                             <MudItem xs="12" sm="6">
                                 <MudTextField Label="姓名 *" @bind-Value="editingMember!.Name" Required="true" />
                             </MudItem>
@@ -110,6 +127,33 @@
                                         <MudSelectItem T="long?" Value="m.Id">@m.Name</MudSelectItem>
                                     }
                                 </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.subtitle2" Class="mb-2">
+                                    @(editingMember?.Gender == Gender.Male ? "妻子（按第几任顺序）" : editingMember?.Gender == Gender.Female ? "丈夫（按第几任顺序）" : "配偶（按第几任顺序）")
+                                </MudText>
+                                @for (int i = 0; i < editingMarriages.Count; i++)
+                                {
+                                    var idx = i;
+                                    var m = editingMarriages[i];
+                                    <div class="d-flex align-center mb-2" style="gap: 8px;">
+                                        <MudText Style="min-width: 55px; flex-shrink: 0;">第@(m.MarriageOrder)任</MudText>
+                                        <MudSelect @bind-Value="m.SpouseId" T="long" Class="flex-grow-1" Variant="Variant.Outlined">
+                                            @foreach (var spouse in GetSpouseCandidates())
+                                            {
+                                                <MudSelectItem T="long" Value="spouse.Id">@spouse.Name</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                        <MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveMarriage(idx)" />
+                                    </div>
+                                }
+                                <MudButton Color="Color.Secondary" OnClick="AddMarriage" Variant="Variant.Outlined" Size="Size.Small" Class="mt-1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" />添加配偶
+                                </MudButton>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" Class="d-flex align-center">
+                                <MudSwitch @bind-Value="editingMember!.IsTopAncestor" Color="Color.Primary" />
+                                <MudText Class="ml-2">是否为顶级祖辈</MudText>
                             </MudItem>
                         </MudGrid>
                         <div class="mt-4">
@@ -209,6 +253,7 @@
     private bool ocrLoading;
     private string? ocrMessage;
     private long? selectedMemberIdForCert;
+    private List<Marriage> editingMarriages = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -232,13 +277,17 @@
     private void StartAdd()
     {
         editingMember = new FamilyMember { CreatedAt = DateTime.UtcNow };
+        editingMarriages = new List<Marriage>();
         showForm = true;
         ocrMessage = null;
     }
 
-    private void StartEdit(FamilyMember m)
+    private async Task StartEdit(FamilyMember m)
     {
         editingMember = m;
+        editingMarriages = (await MarriageRepo.FindAsync(x => x.MemberId == m.Id && !x.IsDeleted))
+            .OrderBy(x => x.MarriageOrder)
+            .ToList();
         showForm = true;
     }
 
@@ -251,16 +300,38 @@
             if (editingMember!.Id > 0)
             {
                 editingMember.UpdatedAt = DateTime.UtcNow;
-                Snackbar.Add("家庭成员信息已更新", Severity.Success);
             }
             else
             {
                 await MemberRepo.AddAsync(editingMember);
-                Snackbar.Add("家庭成员已添加", Severity.Success);
             }
             await MemberRepo.SaveChangesAsync();
+
+            // 保存婚姻记录：先删除旧记录，再添加新记录
+            var oldMarriages = await MarriageRepo.FindAsync(x => x.MemberId == editingMember.Id && !x.IsDeleted);
+            foreach (var om in oldMarriages)
+            {
+                om.IsDeleted = true;
+                om.UpdatedAt = DateTime.UtcNow;
+            }
+            foreach (var m in editingMarriages)
+            {
+                if (m.SpouseId > 0)
+                {
+                    m.MemberId = editingMember.Id;
+                    m.UpdatedAt = DateTime.UtcNow;
+                    if (m.Id == 0)
+                    {
+                        await MarriageRepo.AddAsync(m);
+                    }
+                }
+            }
+            await MarriageRepo.SaveChangesAsync();
+
+            Snackbar.Add(editingMember.Id > 0 ? "家庭成员信息已更新" : "家庭成员已添加", Severity.Success);
             showForm = false;
             editingMember = null;
+            editingMarriages = new();
             await LoadMembers();
         }
         catch (Exception ex)
@@ -273,6 +344,7 @@
     {
         showForm = false;
         editingMember = null;
+        editingMarriages = new();
     }
 
     private async Task DeleteMember(long id)
@@ -351,8 +423,157 @@
 
     [Inject] IJSRuntime JS { get; set; } = default!;
 
+    private async Task OnAvatarUpload(InputFileChangeEventArgs e)
+    {
+        if (e.File is null) return;
+        
+        try
+        {
+            var avatarDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "data", "avatars");
+            Directory.CreateDirectory(avatarDir);
+            
+            var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(e.File.Name)}";
+            var filePath = Path.Combine(avatarDir, fileName);
+            
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await e.File.OpenReadStream(10 * 1024 * 1024).CopyToAsync(stream);
+            }
+            
+            editingMember!.AvatarPath = filePath;
+            Snackbar.Add("头像上传成功", Severity.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"头像上传失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string GetAvatarUrl(string avatarPath)
+    {
+        if (string.IsNullOrEmpty(avatarPath) || !File.Exists(avatarPath)) return string.Empty;
+        
+        try
+        {
+            // 先解析为绝对路径，防止数据库存的是相对路径
+            var fullPath = Path.GetFullPath(avatarPath);
+            
+            var fileInfo = new FileInfo(fullPath);
+            // 获取 wwwroot 根目录位置，转换为相对 URL
+            var wwwrootRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+            if (fullPath.StartsWith(wwwrootRoot))
+            {
+                var relativePath = fullPath.Substring(wwwrootRoot.Length).Replace('\\', '/');
+                return $"{relativePath}?t={fileInfo.LastWriteTime.Ticks}";
+            }
+            // 如果不在 wwwroot 下，降级使用 file:// 协议（绝对路径）
+            return $"file:///{fullPath.Replace('\\', '/')}";
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private string GetGenderIcon(FamilyMember? member)
+    {
+        if (member?.Gender == Gender.Male) return "👨";
+        if (member?.Gender == Gender.Female) return "👩";
+        return "🧑";
+    }
+
+    private void AddMarriage()
+    {
+        var nextOrder = editingMarriages.Any() ? editingMarriages.Max(m => m.MarriageOrder) + 1 : 1;
+        editingMarriages.Add(new Marriage
+        {
+            MemberId = editingMember!.Id,
+            MarriageOrder = nextOrder,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+    }
+
+    private void RemoveMarriage(int index)
+    {
+        if (index >= 0 && index < editingMarriages.Count)
+        {
+            editingMarriages.RemoveAt(index);
+            // 重新编号
+            for (int i = 0; i < editingMarriages.Count; i++)
+            {
+                editingMarriages[i].MarriageOrder = i + 1;
+            }
+        }
+    }
+
+    private List<FamilyMember> GetSpouseCandidates()
+    {
+        if (editingMember == null) return new();
+        var spouseGender = editingMember.Gender == Gender.Male ? Gender.Female
+            : editingMember.Gender == Gender.Female ? Gender.Male
+            : (Gender?)null;
+        var selectedIds = editingMarriages.Select(m => m.SpouseId).ToHashSet();
+        return members
+            .Where(x => x.Id != editingMember.Id)
+            .Where(x => spouseGender == null || x.Gender == spouseGender)
+            .Where(x => !selectedIds.Contains(x.Id))
+            .ToList();
+    }
+
     public void Dispose()
     {
         ModeState.OnChange -= StateChanged;
     }
 }
+
+<style>
+    .avatar-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+    }
+    
+    .avatar-preview {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .avatar-preview:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .avatar-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+    
+    .avatar-placeholder {
+        font-size: 48px;
+    }
+    
+    .avatar-upload {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+</style>

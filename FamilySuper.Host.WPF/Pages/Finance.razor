@@ -73,7 +73,7 @@
                     <RowTemplate>
                         <MudTd>@context.Title</MudTd>
                         <MudTd>
-                            <MudChip T="string" Color="@(context.Type == FinanceType.Income ? Color.Success : Color.Error)" Size="Size.Small">
+                            <MudChip T="string" Color="@(context.Type == FinanceType.Income ? Color.Info : Color.Error)" Size="Size.Small">
                                 @(context.Type == FinanceType.Income ? "收入" : "支出")
                             </MudChip>
                         </MudTd>

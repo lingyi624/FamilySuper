@@ -4,11 +4,11 @@
 <MudDialog MaxWidth="MaxWidth.Medium">
     <DialogContent>
         <MudCard>
-            <MudCardMedia Style="height: 400px; overflow: hidden;">
+            <div style="height: 400px; overflow: hidden;">
                 <img src="@GetPhotoUrl(Photo.FilePath)" 
                      alt="@Photo.Title" 
                      class="w-full h-full object-contain" />
-            </MudCardMedia>
+            </div>
             <MudCardContent>
                 <MudText Typo="Typo.h5" Class="mb-2">@Photo.Title</MudText>
                 
@@ -76,8 +76,29 @@
         if (string.IsNullOrEmpty(filePath)) return string.Empty;
         if (filePath.StartsWith("http")) return filePath;
         
-        var relativePath = filePath.Replace("./", "").Replace("\\", "/");
-        return $"/{relativePath}";
+        try
+        {
+            // 先解析为绝对路径，防止数据库存的是相对路径
+            var fullPath = Path.GetFullPath(filePath);
+            
+            // 如果文件不存在，返回空
+            if (!File.Exists(fullPath)) return string.Empty;
+            
+            var fileInfo = new FileInfo(fullPath);
+            // 获取 wwwroot 根目录位置，转换为相对 URL
+            var wwwrootRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+            if (fullPath.StartsWith(wwwrootRoot))
+            {
+                var relativePath = fullPath.Substring(wwwrootRoot.Length).Replace('\\', '/');
+                return $"{relativePath}?t={fileInfo.LastWriteTime.Ticks}";
+            }
+            // 不在 wwwroot 下，使用 file:/// 协议（绝对路径）
+            return $"file:///{fullPath.Replace('\\', '/')}";
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private void Close() => MudDialog.Close(DialogResult.Ok(Photo));

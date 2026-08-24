@@ -80,14 +80,31 @@
 
     private void Cancel() => MudDialog.Cancel();
 
-    private void HandleFileSelected(InputFileChangeEventArgs e)
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
         var file = e.File;
         if (file != null)
         {
-            var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.Name)}";
-            Photo.FilePath = $"./data/photos/{fileName}";
-            Photo.FileSize = file.Size;
+            try
+            {
+                var photoDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "data", "photos");
+                Directory.CreateDirectory(photoDir);
+                
+                var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.Name)}";
+                var filePath = Path.Combine(photoDir, fileName);
+                
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(stream);
+                }
+                
+                Photo.FilePath = filePath;
+                Photo.FileSize = file.Size;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"照片保存失败: {ex.Message}");
+            }
             StateHasChanged();
         }
     }

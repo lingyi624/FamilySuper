@@ -48,7 +48,7 @@
                                                 @(days < 0 ? $"已逾期 {-days} 天" : days == 0 ? "今天到期" : $"{days} 天后到期")
                                             </MudText>
                                         </div>
-                                        <MudButton Color="Color.Success" Size="Size.Small" OnClick="() => MarkPaid(b.Id)" Variant="Variant.Filled">
+                                        <MudButton Color="Color.Info" Size="Size.Small" OnClick="() => MarkPaid(b.Id)" Variant="Variant.Filled">
                                             标记已付
                                         </MudButton>
                                     </div>
@@ -85,7 +85,7 @@
                             <MudButtonGroup Size="Size.Small">
                                 @if (!context.IsPaid)
                                 {
-                                    <MudButton Color="Color.Success" OnClick="() => MarkPaid(context.Id)">已付</MudButton>
+                                    <MudButton Color="Color.Info" OnClick="() => MarkPaid(context.Id)">已付</MudButton>
                                 }
                                 <MudButton Color="Color.Info" OnClick="() => StartEdit(context)">
                                     <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
@@ -272,7 +272,7 @@
     {
         if (b.IsPaid) return Color.Default;
         if (b.NextDueDate < DateTime.UtcNow) return Color.Error;
-        return Color.Success;
+        return Color.Info;
     }
 
     private static string GetStatusLabel(FamilySuper.Core.Entities.BillReminder b)

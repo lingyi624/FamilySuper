@@ -29,7 +29,7 @@
             <MudCardContent Class="py-8 px-6">
                 <div class="text-center mb-8">
                     <MudText Typo="Typo.body2" Class="text-gray-500 mb-3">当前模式</MudText> 
-                    <MudChip T="string" Color="@(ModeState.CurrentMode == AppMode.Adult ? Color.Success : Color.Warning)" Size="Size.Medium" Variant="Variant.Filled">
+                    <MudChip T="string" Color="@(ModeState.CurrentMode == AppMode.Adult ? Color.Info : Color.Warning)" Size="Size.Medium" Variant="Variant.Filled">
                         <span class="text-lg">@(ModeState.CurrentMode == AppMode.Adult ? "👨 大人模式" : "🧒 小孩模式")</span>
                     </MudChip>
                 </div>
@@ -47,7 +47,7 @@
                                 <MudText Typo="Typo.caption" Class="text-gray-500 mb-4">完整功能 · 财务 · 工作 · 医疗</MudText>
                                 @if (ModeState.CurrentMode == AppMode.Adult)
                                 {
-                                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled">
                                         <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Class="mr-1" />
                                         当前模式
                                     </MudChip>

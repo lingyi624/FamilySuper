@@ -28,7 +28,7 @@ public partial class HomeItem : ComponentBase
 
     private static Color GetStatusColor(string status) => status switch
     {
-        "正常" => Color.Success,
+        "正常" => Color.Info,
         "维修中" => Color.Warning,
         _ => Color.Default
     };

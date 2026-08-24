@@ -82,14 +82,14 @@
                             <MudText Typo="Typo.body2">@(context.RemindDate?.ToString("yyyy-MM-dd") ?? "-")</MudText>
                         </MudTd>
                         <MudTd>
-                            <MudChip Size="Size.Small" Color="@(context.IsCompleted ? Color.Success : Color.Warning)" T="string">
+                            <MudChip Size="Size.Small" Color="@(context.IsCompleted ? Color.Info : Color.Warning)" T="string">
                                 @(context.IsCompleted ? "已完成" : "待处理")
                             </MudChip>
                         </MudTd>
                         <MudTd>
                             @if (!context.IsCompleted)
                             {
-                                <MudIconButton Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" OnClick="() => Complete(context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Info" OnClick="() => Complete(context)" />
                             }
                             <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="() => StartEdit(context)" />
                             <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => Delete(context)" />
@@ -279,7 +279,7 @@
         CareReminderType.ElderlyCare => Color.Warning,
         CareReminderType.Birthday => Color.Secondary,
         CareReminderType.HealthCheck => Color.Info,
-        CareReminderType.ChildCare => Color.Success,
+        CareReminderType.ChildCare => Color.Info,
         _ => Color.Default
     };
 

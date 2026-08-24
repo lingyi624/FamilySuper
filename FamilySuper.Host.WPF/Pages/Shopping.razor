@@ -96,7 +96,7 @@
                             <MudButtonGroup Size="Size.Small">
                                 @if (context.Status == ShoppingStatus.Pending)
                                 {
-                                    <MudButton Color="Color.Success" OnClick="() => MarkPurchased(context.Id)">
+                                    <MudButton Color="Color.Info" OnClick="() => MarkPurchased(context.Id)">
                                         <MudIcon Icon="@Icons.Material.Filled.Check" />
                                     </MudButton>
                                     <MudButton Color="Color.Info" OnClick="() => StartEdit(context)">
@@ -206,7 +206,7 @@
         => memberId == null ? "家庭" : members.FirstOrDefault(m => m.Id == memberId)?.Name ?? "未知";
 
     private Color GetStatusColor(ShoppingStatus status)
-        => status switch { ShoppingStatus.Pending => Color.Warning, ShoppingStatus.Purchased => Color.Success, _ => Color.Default };
+        => status switch { ShoppingStatus.Pending => Color.Warning, ShoppingStatus.Purchased => Color.Info, _ => Color.Default };
 
     private string GetStatusText(ShoppingStatus status)
         => status switch { ShoppingStatus.Pending => "待购买", ShoppingStatus.Purchased => "已购买", _ => "已取消" };

@@ -11,7 +11,7 @@
                         <MudText Typo="Typo.h3" Class="mb-2">欢迎回家</MudText>
                         <MudText Typo="Typo.body1" Class="opacity-90">您的家庭智能中枢,守护每一位家人</MudText>
                     </div>
-                    <MudChip T="string" Color="@(ModeState.CurrentMode == AppMode.Adult ? Color.Success : Color.Warning)" Size="Size.Medium" Class="px-3 py-1">
+                    <MudChip T="string" Color="@(ModeState.CurrentMode == AppMode.Adult ? Color.Info : Color.Warning)" Size="Size.Medium" Class="px-3 py-1">
                         <span>@(ModeState.CurrentMode == AppMode.Adult ? "👨 大人模式" : "🧒 小孩模式")</span>
                     </MudChip>
                 </div>
@@ -39,7 +39,7 @@
             <MudCardContent>
                 <div class="flex items-start justify-between mb-3">
                     <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" Class="text-green-500" />
-                    <MudChip T="string" Color="Color.Success" Size="Size.Small">已启用</MudChip>
+                    <MudChip T="string" Color="Color.Info" Size="Size.Small">已启用</MudChip>
                 </div>
                 <MudText Typo="Typo.h6" Class="mb-1">隐私保护</MudText>
                 <MudText Typo="Typo.body2" Class="text-gray-500">所有数据本地存储,AES-256 加密,不上传云端</MudText>
@@ -52,7 +52,7 @@
             <MudCardContent>
                 <div class="flex items-start justify-between mb-3">
                     <MudIcon Icon="@Icons.Material.Filled.SwitchAccount" Size="Size.Large" Class="text-blue-500" />
-                    <MudChip T="string" Color="Color.Success" Size="Size.Small">已配置</MudChip>
+                    <MudChip T="string" Color="Color.Info" Size="Size.Small">已配置</MudChip>
                 </div>
                 <MudText Typo="Typo.h6" Class="mb-1">模式切换</MudText>
                 <MudText Typo="Typo.body2" Class="text-gray-500">大人/小孩模式独立数据视图,内容过滤</MudText>

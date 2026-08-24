@@ -73,6 +73,11 @@ public class FamilyMember : EntityBase
     public FamilyMember? Mother { get; set; }
 
     /// <summary>
+    /// 是否为顶级祖辈
+    /// </summary>
+    public bool IsTopAncestor { get; set; }
+
+    /// <summary>
     /// 子女列表（导航属性）
     /// </summary>
     public ICollection<FamilyMember>? Children { get; set; }

@@ -44,7 +44,7 @@
                                                 @(plan.Dosage ?? "-") · @(plan.Frequency ?? "-") · @GetMemberName(plan.MemberId)
                                             </MudText>
                                         </div>
-                                        <MudButton Color="Color.Success" OnClick="() => RecordDose(plan)" Variant="Variant.Filled">
+                                        <MudButton Color="Color.Info" OnClick="() => RecordDose(plan)" Variant="Variant.Filled">
                                             已服用
                                         </MudButton>
                                     </div>
@@ -96,7 +96,7 @@
                             @(context.EndDate == null ? " ~ 长期" : $" ~ {context.EndDate:yyyy-MM-dd}")
                         </MudTd>
                         <MudTd>
-                            <MudChip T="string" Color="@(context.IsActive ? Color.Success : Color.Default)" Size="Size.Small">
+                            <MudChip T="string" Color="@(context.IsActive ? Color.Info : Color.Default)" Size="Size.Small">
                                 @(context.IsActive ? "进行中" : "已停用")
                             </MudChip>
                         </MudTd>

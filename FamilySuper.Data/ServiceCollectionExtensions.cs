@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRepository<VirtualScene>>(sp => new Repository<VirtualScene>(sp.GetRequiredService<FamilyDbContext>()));
         services.AddScoped<IRepository<Annotation>>(sp => new Repository<Annotation>(sp.GetRequiredService<FamilyDbContext>()));
         services.AddScoped<IRepository<PhotoTimeline>>(sp => new Repository<PhotoTimeline>(sp.GetRequiredService<FamilyDbContext>()));
+        services.AddScoped<IRepository<Marriage>>(sp => new Repository<Marriage>(sp.GetRequiredService<FamilyDbContext>()));
         services.AddScoped<IRepository<FinanceRecord>>(sp => new Repository<FinanceRecord>(sp.GetRequiredService<FinanceDbContext>()));
         services.AddScoped<IRepository<Budget>>(sp => new Repository<Budget>(sp.GetRequiredService<FinanceDbContext>()));
         services.AddScoped<IRepository<BillReminder>>(sp => new Repository<BillReminder>(sp.GetRequiredService<FinanceDbContext>()));

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using MudBlazor;
 using Color = MudBlazor.Color;
 using FamilySuper.Host.WPF.Components.Dialogs;
+using System.IO;
 
 namespace FamilySuper.Host.WPF.Pages;
 
@@ -20,8 +21,6 @@ public partial class PhotoTimeline
     private List<string> categories = new();
     private int? selectedYear;
     private string? selectedCategory;
-
-    private const string BasePhotoPath = "./data/photos";
 
     protected override async Task OnInitializedAsync()
     {
@@ -85,8 +84,29 @@ public partial class PhotoTimeline
         
         if (filePath.StartsWith("http")) return filePath;
         
-        var relativePath = filePath.Replace("./", "").Replace("\\", "/");
-        return $"/{relativePath}";
+        try
+        {
+            // 先解析为绝对路径，防止数据库存的是相对路径
+            var fullPath = Path.GetFullPath(filePath);
+            
+            // 如果文件不存在，返回空
+            if (!File.Exists(fullPath)) return string.Empty;
+            
+            var fileInfo = new FileInfo(fullPath);
+            // 获取 wwwroot 根目录位置，转换为相对 URL
+            var wwwrootRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+            if (fullPath.StartsWith(wwwrootRoot))
+            {
+                var relativePath = fullPath.Substring(wwwrootRoot.Length).Replace('\\', '/');
+                return $"{relativePath}?t={fileInfo.LastWriteTime.Ticks}";
+            }
+            // 不在 wwwroot 下，使用 file:/// 协议（绝对路径）
+            return $"file:///{fullPath.Replace('\\', '/')}";
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private async Task StartAdd()

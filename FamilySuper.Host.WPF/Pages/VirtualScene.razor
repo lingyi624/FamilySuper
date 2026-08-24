@@ -111,6 +111,10 @@
                         <MudIcon Icon="@Icons.Material.Filled.Build" Class="mr-1" />
                         重建模型
                     </MudButton>
+                    <MudButton Color="Color.Info" OnClick="ShowModelUploadDialog" Disabled="@(selectedScene == null)" Size="Size.Small">
+                        <MudIcon Icon="@Icons.Material.Filled.FileUpload" Class="mr-1" />
+                        上传模型
+                    </MudButton>
                 </CardHeaderActions>
             </MudCardHeader>
             <MudCardContent Class="p-0" style="height: calc(100vh - 160px);">

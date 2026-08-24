@@ -1,7 +1,56 @@
 @inherits LayoutComponentBase
 @inject Services.ModeStateContainer ModeState
 
-<MudThemeProvider />
+@code {
+    private MudTheme _warmTheme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#E8913A",
+            PrimaryContrastText = "#FFFFFF",
+            Secondary = "#8D6E63",
+            Tertiary = "#FFB74D",
+            Info = "#7C8B9E",
+            Success = "#66BB6A",
+            Warning = "#FFA726",
+            Error = "#EF5350",
+            Dark = "#5D4037",
+            DarkContrastText = "#FFFFFF",
+            TextPrimary = "#4E342E",
+            TextSecondary = "#795548",
+            AppbarBackground = "#FF8C42",
+            AppbarText = "#FFFFFF",
+            DrawerBackground = "#FFF8F3",
+            DrawerText = "#4E342E",
+            DrawerIcon = "#8D6E63",
+            Surface = "#FFF8F3",
+            Background = "#FFF3E0",
+            Divider = "#FFE0B2",
+            TableLines = "#FFE0B2",
+            TableHover = "#FFF3E0",
+            TableStriped = "#FFF8F3",
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = new[] { "Microsoft YaHei", "Segoe UI", "Noto Sans SC", "sans-serif" },
+            }
+        }
+    };
+
+    protected override void OnInitialized()
+    {
+        ModeState.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        ModeState.OnChange -= StateHasChanged;
+    }
+}
+
+<MudThemeProvider Theme="@_warmTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -14,7 +63,7 @@
         </div>
         <div class="header-right">
             <NotificationBell />
-            <MudChip T="string" Color="@(ModeState.CurrentMode == AppMode.Adult ? Color.Success : Color.Warning)" Size="Size.Medium">
+            <MudChip T="string" Color="@(ModeState.CurrentMode == AppMode.Adult ? Color.Info : Color.Warning)" Size="Size.Medium">
                 @(ModeState.CurrentMode == AppMode.Adult ? "大人模式" : "小孩模式")
             </MudChip>
         </div>
@@ -31,25 +80,13 @@
     </div>
 </div>
 
-@code {
-    protected override void OnInitialized()
-    {
-        ModeState.OnChange += StateHasChanged;
-    }
-
-    public void Dispose()
-    {
-        ModeState.OnChange -= StateHasChanged;
-    }
-}
-
 <style>
     .app-shell {
         display: flex;
         flex-direction: column;
         height: 100vh;
-        background: #f5f5f7;
-        font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+        background: #FFF3E0;
+        font-family: "Microsoft YaHei", "Segoe UI", "Noto Sans SC", sans-serif;
     }
     .app-header {
         display: flex;
@@ -57,7 +94,7 @@
         align-items: center;
         padding: 0 24px;
         height: 56px;
-        background: linear-gradient(135deg, #2d2d30 0%, #3c3c42 100%);
+        background: linear-gradient(135deg, #FF8C42 0%, #FF6B35 100%);
         color: white;
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
@@ -81,8 +118,8 @@
     }
     .app-nav {
         width: 220px;
-        background: white;
-        border-right: 1px solid #e0e0e0;
+        background: #FFF8F3;
+        border-right: 1px solid #FFE0B2;
         padding: 16px 0;
         overflow-y: auto;
     }
@@ -90,5 +127,10 @@
         flex: 1;
         padding: 24px;
         overflow-y: auto;
+        background: #FFF3E0;
     }
+    /* 灰蓝色点缀 — 用于分隔线、辅助提示等 */
+    .accent-line { border-color: #7C8B9E; }
+    /* 深色文字提升关键数据可读性 */
+    .text-deep { color: #3E2723; font-weight: 500; }
 </style>

@@ -34,7 +34,25 @@ public static class DbInitializer
     {
         var ctx = sp.GetRequiredService<FamilyDbContext>();
         
-      
+        // 兼容已有数据库：添加新字段
+        try { await ctx.Database.ExecuteSqlRawAsync("ALTER TABLE FamilyMembers ADD COLUMN IsTopAncestor INTEGER NOT NULL DEFAULT 0"); } catch { }
+
+        await ctx.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS Marriages (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    MemberId INTEGER NOT NULL,
+    SpouseId INTEGER NOT NULL,
+    MarriageOrder INTEGER NOT NULL DEFAULT 1,
+    Remark TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    IsDeleted INTEGER NOT NULL DEFAULT 0,
+    Mode TEXT NOT NULL DEFAULT 'adult',
+    FOREIGN KEY (MemberId) REFERENCES FamilyMembers(Id),
+    FOREIGN KEY (SpouseId) REFERENCES FamilyMembers(Id)
+)");
+        await ctx.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_Marriages_MemberId ON Marriages(MemberId)");
+        await ctx.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_Marriages_SpouseId ON Marriages(SpouseId)");
 
         await ctx.Database.ExecuteSqlRawAsync(@"
 CREATE TABLE IF NOT EXISTS ShoppingItems (

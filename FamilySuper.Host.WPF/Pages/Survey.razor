@@ -45,7 +45,7 @@
                         </MudTd>
                         <MudTd>@context.StartDate.ToString("yyyy-MM-dd")</MudTd>
                         <MudTd>
-                            <MudBadge Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small" Content="@(GetResponseCount(context.Id))">
+                            <MudBadge Color="Color.Info" Variant="Variant.Filled" Size="Size.Small" Content="@(GetResponseCount(context.Id))">
                                 @* @(GetResponseCount(context.Id)) *@
                             </MudBadge>
                         </MudTd>
@@ -216,7 +216,7 @@
                         }
                     }
                     <MudButton Color="Color.Default" OnClick="CancelStats" Class="mt-4">返回列表</MudButton>
-                    <MudButton Color="Color.Success" OnClick="ExportCsv" Class="mt-4 ml-2" Variant="Variant.Filled">
+                    <MudButton Color="Color.Info" OnClick="ExportCsv" Class="mt-4 ml-2" Variant="Variant.Filled">
                         <MudIcon Icon="@Icons.Material.Filled.Download" Class="mr-1" />
                         导出CSV
                     </MudButton>
@@ -398,7 +398,7 @@
     {
         if (!s.IsActive) return Color.Default;
         if (s.EndDate.HasValue && s.EndDate < DateTime.UtcNow) return Color.Warning;
-        return Color.Success;
+        return Color.Info;
     }
 
     private static string GetStatusLabel(FamilySuper.Core.Entities.Survey s)
@@ -470,4 +470,8 @@
     .bar-label { width: 100px; flex-shrink: 0; }
     .progress-bar { flex: 1; height: 8px; background-color: #6366f1; border-radius: 4px; }
     .bar-value { width: 40px; text-align: right; }
+    /* 灰蓝色分隔线增加层次感 */
+    .survey-divider { border-color: #7C8B9E; opacity: 0.3; }
+    /* 关键文字用深灰提升可读性 */
+    .text-deep { color: #3E2723; font-weight: 500; }
 </style>

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using FamilySuper.Host.WPF.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -49,6 +50,50 @@ public partial class MainWindow : Window
 
         _notificationService.Show("家庭超级管家", "应用已启动,按 Ctrl+Alt+H 可快速唤出");
     }
+
+    #region 自定义标题栏事件
+
+    private void OnTitleBarMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+        {
+            if (e.ClickCount == 2)
+            {
+                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            }
+            else
+            {
+                DragMove();
+            }
+        }
+    }
+
+    private void OnMinimizeWindowClick(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void OnMaximizeWindowClick(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    }
+
+    private void OnCloseWindowClick(object sender, RoutedEventArgs e)
+    {
+        ExitApp();
+    }
+
+    private void OnCloseBtnMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        CloseBtn.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(232, 17, 35));
+    }
+
+    private void OnCloseBtnMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        CloseBtn.Background = System.Windows.Media.Brushes.Transparent;
+    }
+
+    #endregion
 
     private void ShowFromTray()
     {

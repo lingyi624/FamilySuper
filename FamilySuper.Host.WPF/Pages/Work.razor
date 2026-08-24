@@ -247,14 +247,14 @@
     private static string GetStatusColor(TaskStatus s) => s switch
     {
         TaskStatus.Pending => "#757575",
-        TaskStatus.InProgress => "#1976d2",
-        TaskStatus.Completed => "#2e7d32",
+        TaskStatus.InProgress => "#4A6FA5",
+        TaskStatus.Completed => "#7C8B9E",
         _ => "#757575"
     };
 
     private static string GetPriorityColor(TaskPriority p) => p switch
     {
-        TaskPriority.Low => "#4caf50",
+        TaskPriority.Low => "#7C8B9E",
         TaskPriority.Medium => "#ff9800",
         TaskPriority.High => "#f44336",
         TaskPriority.Urgent => "#9c27b0",
@@ -263,7 +263,7 @@
 
     private static Color GetPriorityChipColor(TaskPriority p) => p switch
     {
-        TaskPriority.Low => Color.Success,
+        TaskPriority.Low => Color.Info,
         TaskPriority.Medium => Color.Warning,
         TaskPriority.High => Color.Error,
         TaskPriority.Urgent => Color.Secondary,

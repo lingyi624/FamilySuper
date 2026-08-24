@@ -6,28 +6,25 @@
         <MudCard>
             <MudCardHeader>
                 <CardHeaderContent>
-                    <MudText Typo="Typo.h6">上传照片</MudText>
+                    <MudText Typo="Typo.h6">上传GLB模型</MudText>
                 </CardHeaderContent>
             </MudCardHeader>
             <MudCardContent>
-                <MudText Typo="Typo.body1" Class="mb-4">选择要上传的照片，支持批量上传。建议上传10-50张从不同角度拍摄的照片。</MudText>
+                <MudText Typo="Typo.body1" Class="mb-4">上传GLB格式的3D模型文件，用于展示虚拟场景。</MudText>
                 <div class="mb-4">
                     <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Upload" OnClick="TriggerFileUpload">
-                        选择照片
+                        选择GLB文件
                     </MudButton>
-                    <InputFile id="@_uploadInputId" class="d-none" multiple accept="image/*" OnChange="HandleFileSelected" />
+                    <InputFile id="@_uploadInputId" class="d-none" accept=".glb,.gltf" OnChange="HandleFileSelected" />
                 </div>
-                @if (FileDataList.Count > 0)
+                @if (modelData != null)
                 {
                     <div class="list-group">
-                        @foreach (var file in FileDataList)
-                        {
-                            <div class="list-group-item d-flex align-items-center">
-                                <MudIcon Icon="@Icons.Material.Filled.Image" Color="Color.Primary" Class="mr-2" />
-                                <MudText Class="flex-grow-1">@file.FileName</MudText>
-                                <MudText Typo="Typo.caption" Class="text-muted">@(file.Data.Length / 1024) KB</MudText>
-                            </div>
-                        }
+                        <div class="list-group-item d-flex align-items-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Translate" Color="Color.Info" Class="mr-2" />
+                            <MudText Class="flex-grow-1">@modelData.FileName</MudText>
+                            <MudText Typo="Typo.caption" Class="text-muted">@(modelData.Data.Length / 1024) KB</MudText>
+                        </div>
                     </div>
                 }
                 @if (isUploading)
@@ -37,7 +34,7 @@
                 }
             </MudCardContent>
             <MudCardActions>
-                <MudButton Color="Color.Primary" OnClick="Upload" Disabled="@(FileDataList.Count == 0 || isUploading)" Variant="Variant.Filled">上传</MudButton>
+                <MudButton Color="Color.Primary" OnClick="Upload" Disabled="@(modelData == null || isUploading)" Variant="Variant.Filled">上传</MudButton>
                 <MudButton Color="Color.Default" OnClick="Cancel" Disabled="@isUploading">取消</MudButton>
             </MudCardActions>
         </MudCard>
@@ -48,14 +45,14 @@
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
 
-    public class UploadFileData
+    public class UploadModelData
     {
         public string FileName { get; set; } = string.Empty;
         public byte[] Data { get; set; } = Array.Empty<byte>();
     }
 
-    private readonly string _uploadInputId = $"photo-upload-{Guid.NewGuid():N}";
-    public List<UploadFileData> FileDataList { get; set; } = new();
+    private readonly string _uploadInputId = $"model-upload-{Guid.NewGuid():N}";
+    private UploadModelData? modelData;
     private bool isUploading;
 
     private async Task TriggerFileUpload()
@@ -65,22 +62,20 @@
 
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
+        if (e.File == null) return;
+
         isUploading = true;
         StateHasChanged();
 
-        FileDataList.Clear();
-        foreach (var file in e.GetMultipleFiles(50))
+        using var stream = e.File.OpenReadStream(50 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+
+        modelData = new UploadModelData
         {
-            using var stream = file.OpenReadStream(5 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            
-            FileDataList.Add(new UploadFileData
-            {
-                FileName = file.Name,
-                Data = ms.ToArray()
-            });
-        }
+            FileName = e.File.Name,
+            Data = ms.ToArray()
+        };
 
         isUploading = false;
         StateHasChanged();
@@ -88,7 +83,10 @@
 
     private void Upload()
     {
-        MudDialog.Close(DialogResult.Ok(FileDataList));
+        if (modelData != null)
+        {
+            MudDialog.Close(DialogResult.Ok(modelData));
+        }
     }
 
     private void Cancel() => MudDialog.Cancel();

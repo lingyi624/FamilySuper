@@ -1,5 +1,6 @@
 @page "/genealogy"
 @inject IRepository<FamilyMember> MemberRepo
+@inject IRepository<Marriage> MarriageRepo
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -59,6 +60,7 @@
     private List<FamilyMember> familyTree = new();
     private Dictionary<long, List<FamilyMember>> childrenMap = new();
     private Dictionary<long, FamilyMember> memberMap = new();
+    private Dictionary<long, List<Marriage>> marriagesMap = new();
     private List<ConnectionLine> connections = new();
     private ElementReference svgRef;
 
@@ -87,29 +89,66 @@
         
         memberMap = allMembers.ToDictionary(m => m.Id);
 
-        var childrenGroups = allMembers
-            .Where(m => m.FatherId.HasValue || m.MotherId.HasValue)
-            .GroupBy(m => 
-            {
-                var fatherId = m.FatherId.HasValue ? m.FatherId.Value.ToString() : "none";
-                var motherId = m.MotherId.HasValue ? m.MotherId.Value.ToString() : "none";
-                return $"{fatherId}-{motherId}";
-            })
-            .ToDictionary(g => g.Key, g => g.ToList());
-
         childrenMap = new Dictionary<long, List<FamilyMember>>();
         foreach (var member in allMembers)
         {
-            var children = allMembers.Where(m => m.FatherId == member.Id || m.MotherId == member.Id).ToList();
+            var children = allMembers.Where(m => m.FatherId == member.Id || m.MotherId == member.Id)
+                .OrderBy(c => c.BirthDate)
+                .ToList();
             if (children.Any())
             {
                 childrenMap[member.Id] = children;
             }
         }
 
-        familyTree = allMembers
-            .Where(m => !m.FatherId.HasValue && !m.MotherId.HasValue)
+        // 加载婚姻关系
+        var allMarriages = await MarriageRepo.GetAllAsync();
+        marriagesMap = allMarriages
+            .Where(m => !m.IsDeleted)
+            .GroupBy(m => m.MemberId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(m => m.MarriageOrder).ToList());
+
+        var roots = allMembers
+            .Where(m => m.IsTopAncestor)
             .ToList();
+
+        // 去重：如果夫妻双方都是顶级祖辈，只保留一方（男性优先）
+        familyTree = new List<FamilyMember>();
+        var skipIds = new HashSet<long>();
+        foreach (var root in roots.OrderBy(m => m.Gender == Gender.Male ? 0 : 1))
+        {
+            if (skipIds.Contains(root.Id)) continue;
+            familyTree.Add(root);
+
+            // 检查该祖辈的配偶是否也是顶级祖辈
+            if (marriagesMap.TryGetValue(root.Id, out var marriages))
+            {
+                foreach (var m in marriages)
+                {
+                    if (roots.Any(r => r.Id == m.SpouseId))
+                    {
+                        skipIds.Add(m.SpouseId);
+                        // 将被跳过的配偶的子女合并到当前根节点的子女列表中
+                        if (childrenMap.TryGetValue(m.SpouseId, out var spouseChildren))
+                        {
+                            if (!childrenMap.ContainsKey(root.Id))
+                            {
+                                childrenMap[root.Id] = new List<FamilyMember>();
+                            }
+                            foreach (var child in spouseChildren)
+                            {
+                                if (!childrenMap[root.Id].Any(c => c.Id == child.Id))
+                                {
+                                    childrenMap[root.Id].Add(child);
+                                }
+                            }
+                            // 合并后按出生日期排序
+                            childrenMap[root.Id] = childrenMap[root.Id].OrderBy(c => c.BirthDate).ToList();
+                        }
+                    }
+                }
+            }
+        }
 
         if (!familyTree.Any())
         {
@@ -146,7 +185,7 @@
 
     private string GetConnectionPath(long parentId, long childId)
     {
-        return $"M 100 200 L 100 300 L 100 350";
+        return $"M 0 0 L 30 0";
     }
 
     private void NavigateToFamily()
@@ -157,52 +196,96 @@
     private RenderFragment RenderFamilyNode(FamilyMember member, int depth) => __builder =>
     {
         List<FamilyMember>? children = childrenMap.TryGetValue(member.Id, out var kids) ? kids : null;
-        FamilyMember? spouse = null;
-        
-        if (member.Gender == Gender.Male)
-        {
-            spouse = memberMap.Values.FirstOrDefault(m => 
-                m.Gender == Gender.Female && 
-                ((m.FatherId.HasValue && childrenMap.TryGetValue(m.Id, out var herKids) && herKids.Any(k => children?.Contains(k) ?? false)) ||
-                 (children?.Any(c => c.MotherId == m.Id) ?? false)));
-        }
-        else
-        {
-            spouse = memberMap.Values.FirstOrDefault(m => 
-                m.Gender == Gender.Male &&
-                ((m.FatherId.HasValue && childrenMap.TryGetValue(m.Id, out var hisKids) && hisKids.Any(k => children?.Contains(k) ?? false)) ||
-                 (children?.Any(c => c.FatherId == m.Id) ?? false)));
-        }
+        var memberMarriages = marriagesMap.TryGetValue(member.Id, out var mrs) ? mrs : new();
 
         <div class="family-node" id="node-@member.Id">
-            <div class="spouse-row">
-                <div class="member-card">
-                    <div class="member-icon">@GetGenderIcon(member)</div>
-                    <div class="member-info">
-                        <MudText Typo="Typo.subtitle2" Class="font-bold">@member.Name</MudText>
-                        <MudText Typo="Typo.caption" Class="text-gray-500">@member.Role @GetAge(member)</MudText>
-                    </div>
-                </div>
-                @if (spouse != null)
-                {
-                    <div class="spouse-connector">❤️</div>
+            <div class="node-left">
+                <div class="spouse-row">
                     <div class="member-card">
-                        <div class="member-icon">@GetGenderIcon(spouse)</div>
+                        <div class="member-avatar">
+                            @if (!string.IsNullOrEmpty(member.AvatarPath) && File.Exists(member.AvatarPath))
+                            {
+                                <img src="@GetAvatarUrl(member.AvatarPath)" alt="@member.Name" class="avatar-img" />
+                            }
+                            else
+                            {
+                                <span class="avatar-emoji">@GetGenderIcon(member)</span>
+                            }
+                        </div>
                         <div class="member-info">
-                            <MudText Typo="Typo.subtitle2" Class="font-bold">@spouse.Name</MudText>
-                            <MudText Typo="Typo.caption" Class="text-gray-500">@spouse.Role @GetAge(spouse)</MudText>
+                            <MudText Typo="Typo.subtitle2" Class="font-bold">@member.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="text-gray-500">@member.Role @GetAge(member)</MudText>
                         </div>
                     </div>
-                }
+                    @foreach (var marriage in memberMarriages)
+                    {
+                        if (memberMap.TryGetValue(marriage.SpouseId, out var spouseMember))
+                        {
+                            <div class="spouse-connector">❤️</div>
+                            <div class="member-card">
+                                <div class="member-avatar">
+                                    @if (!string.IsNullOrEmpty(spouseMember.AvatarPath) && File.Exists(spouseMember.AvatarPath))
+                                    {
+                                        <img src="@GetAvatarUrl(spouseMember.AvatarPath)" alt="@spouseMember.Name" class="avatar-img" />
+                                    }
+                                    else
+                                    {
+                                        <span class="avatar-emoji">@GetGenderIcon(spouseMember)</span>
+                                    }
+                                </div>
+                                <div class="member-info">
+                                    <MudText Typo="Typo.subtitle2" Class="font-bold">@spouseMember.Name</MudText>
+                                    <MudText Typo="Typo.caption" Class="text-gray-500">第@(marriage.MarriageOrder)任 @spouseMember.Role @GetAge(spouseMember)</MudText>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
             </div>
             
             @if (children != null && children.Count > 0)
             {
-                <div class="vertical-line"></div>
-                <div class="children-row">
-                    @foreach (var child in children)
+                <div class="horizontal-line"></div>
+                <div class="children-column">
+                    @{
+                        var childrenByMother = children
+                            .GroupBy(c => c.MotherId)
+                            .ToList();
+                        var totalGroups = childrenByMother.Count;
+                    }
+                    @for (int g = 0; g < totalGroups; g++)
                     {
-                        @RenderFamilyNode(child, depth + 1)
+                        var group = childrenByMother[g].ToList();
+                        var firstChild = group[0];
+                        // 查找该组子女的母亲及婚姻信息
+                        string? groupLabel = null;
+                        if (firstChild.MotherId.HasValue && memberMap.TryGetValue(firstChild.MotherId.Value, out var motherMember))
+                        {
+                            var marriage = memberMarriages.FirstOrDefault(m => m.SpouseId == firstChild.MotherId.Value);
+                            if (marriage != null)
+                            {
+                                groupLabel = $"第{marriage.MarriageOrder}任 {motherMember.Name} 所生";
+                            }
+                            else
+                            {
+                                groupLabel = $"{motherMember.Name} 所生";
+                            }
+                        }
+                        
+                        @if (groupLabel != null)
+                        {
+                            <div class="marriage-group-label">@groupLabel</div>
+                        }
+                        
+                        @foreach (var child in group)
+                        {
+                            @RenderFamilyNode(child, depth + 1)
+                        }
+                        
+                        @if (g < totalGroups - 1)
+                        {
+                            <div class="group-separator"></div>
+                        }
                     }
                 </div>
             }
@@ -224,6 +307,32 @@
         if (!member.BirthDate.HasValue) return "";
         var age = DateTime.UtcNow.Year - member.BirthDate.Value.Year;
         return $"({age}岁)";
+    }
+
+    private string GetAvatarUrl(string avatarPath)
+    {
+        if (string.IsNullOrEmpty(avatarPath) || !File.Exists(avatarPath)) return string.Empty;
+        
+        try
+        {
+            // 先解析为绝对路径，防止数据库存的是相对路径
+            var fullPath = Path.GetFullPath(avatarPath);
+            
+            var fileInfo = new FileInfo(fullPath);
+            // 获取 wwwroot 根目录位置，转换为相对 URL
+            var wwwrootRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+            if (fullPath.StartsWith(wwwrootRoot))
+            {
+                var relativePath = fullPath.Substring(wwwrootRoot.Length).Replace('\\', '/');
+                return $"{relativePath}?t={fileInfo.LastWriteTime.Ticks}";
+            }
+            // 如果不在 wwwroot 下，降级使用 file:// 协议（绝对路径）
+            return $"file:///{fullPath.Replace('\\', '/')}";
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 }
 
@@ -254,16 +363,68 @@
 
     .family-node {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
         position: relative;
+        gap: 20px;
+    }
+
+    .node-left {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
     .spouse-row {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 8px;
+        margin-bottom: 0px;
+    }
+
+    .horizontal-line {
+        height: 3px;
+        width: 30px;
+        background: linear-gradient(to right, #9CA3AF, #6B7280);
+        border-radius: 2px;
+        position: relative;
+    }
+
+    .horizontal-line::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        right: -4px;
+        transform: translateY(-50%);
+        width: 12px;
+        height: 12px;
+        background: #9CA3AF;
+        border-radius: 50%;
+    }
+
+    .children-column {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .marriage-group-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #D97706;
+        padding: 4px 12px;
+        background: rgba(217, 119, 6, 0.08);
+        border-radius: 6px;
+        border-left: 3px solid #D97706;
+        margin-bottom: 4px;
+        white-space: nowrap;
+    }
+
+    .group-separator {
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(to right, transparent, #D1D5DB, transparent);
+        margin: 8px 0;
     }
 
     .member-card {
@@ -284,9 +445,27 @@
         box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
     }
 
-    .member-icon {
-        font-size: 28px;
+    .member-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
         margin-bottom: 6px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+    }
+    
+    .avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .avatar-emoji {
+        font-size: 28px;
     }
 
     .member-info {
@@ -301,33 +480,5 @@
     @@keyframes pulse {
         0%, 100% { transform: scale(1); }
         50% { transform: scale(1.2); }
-    }
-
-    .vertical-line {
-        width: 3px;
-        height: 30px;
-        background: linear-gradient(to bottom, #9CA3AF, #6B7280);
-        border-radius: 2px;
-        position: relative;
-    }
-
-    .vertical-line::before {
-        content: '';
-        position: absolute;
-        top: -4px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 12px;
-        height: 12px;
-        background: #9CA3AF;
-        border-radius: 50%;
-    }
-
-    .children-row {
-        display: flex;
-        gap: 40px;
-        margin-top: 20px;
-        flex-wrap: wrap;
-        justify-content: center;
     }
 </style>

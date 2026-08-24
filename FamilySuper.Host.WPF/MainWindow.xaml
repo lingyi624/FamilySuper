@@ -8,29 +8,119 @@
         mc:Ignorable="d" 
         Title="AI家庭超级管家" Height="768" Width="1280"
         WindowStartupLocation="CenterScreen" WindowState="Maximized"
-        Background="#f5f5f7"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
+        Background="#FFF8F3"
         StateChanged="OnStateChanged">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" 
+                      CornerRadius="0" GlassFrameThickness="0" 
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="0"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="40"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="#2d2d30" Padding="12,8">
-            <StackPanel Orientation="Horizontal">
-                <Image Source="wwwroot/logo.png" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBlock Text="家庭超级管家" Foreground="White" FontSize="14" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Margin="0,0,24,0"/>
-                <Button Content="最小化到托盘" Click="OnMinimizeToTray" Background="Transparent"
-                        Foreground="#cccccc" BorderBrush="#555" Padding="12,4" Margin="0,0,8,0"/>
-                <Button Content="退出" Click="OnExitClick" Background="Transparent"
-                        Foreground="#ff6666" BorderBrush="#555" Padding="12,4"/>
-            </StackPanel>
+        <!-- 自定义标题栏 -->
+        <Border Grid.Row="0" 
+                MouseDown="OnTitleBarMouseDown">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="#FF8C42" Offset="0.0"/>
+                    <GradientStop Color="#FF6B35" Offset="1.0"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 左侧：图标和标题 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <Image Source="wwwroot/logo.png" Width="18" Height="18" VerticalAlignment="Center"/>
+                    <TextBlock Text="AI家庭超级管家" Foreground="White" FontSize="13" 
+                               FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    <Border Background="#33FFFFFF" CornerRadius="3" Padding="5,1" Margin="8,0,0,0">
+                        <TextBlock Text="v1.0" Foreground="White" FontSize="10"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- 中间：操作按钮 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button Content="最小化到托盘" Style="{StaticResource ActionButtonStyle}" 
+                            Click="OnMinimizeToTray"
+                            Background="#26FFFFFF" 
+                            Margin="0,0,6,0"/>
+                    <Button Content="退出" Style="{StaticResource ActionButtonStyle}" 
+                            Click="OnExitClick"
+                            Background="#26FFFFFF"/>
+                </StackPanel>
+
+                <!-- 右侧：窗口控制按钮 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="MinimizeBtn" Content="&#x2014;" Style="{StaticResource TitleBarButtonStyle}" 
+                            Click="OnMinimizeWindowClick"/>
+                    <Button x:Name="MaximizeBtn" Content="&#x25A1;" Style="{StaticResource TitleBarButtonStyle}" 
+                            Click="OnMaximizeWindowClick"/>
+                    <Button x:Name="CloseBtn" Content="&#x2715;" Style="{StaticResource TitleBarButtonStyle}" 
+                            Click="OnCloseWindowClick"
+                            MouseEnter="OnCloseBtnMouseEnter"
+                            MouseLeave="OnCloseBtnMouseLeave"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <blazor:BlazorWebView Grid.Row="1"
                               x:Name="blazorWebView"
-                              HostPage="wwwroot/index.html">
+                              HostPage="wwwroot/index.html"
+                              Background="#FFF8F3">
             <blazor:BlazorWebView.RootComponents>
                 <blazor:RootComponent Selector="#app"
                                       ComponentType="{x:Type local:BlazorApp}" />

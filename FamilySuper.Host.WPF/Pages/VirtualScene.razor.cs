@@ -64,7 +64,7 @@ public partial class VirtualScene : ComponentBase, IAsyncDisposable
     private static Color GetReconstructionStatusColor(string status) => status switch
     {
         "processing" => Color.Warning,
-        "completed" => Color.Success,
+        "completed" => Color.Info,
         "failed" => Color.Error,
         _ => Color.Default
     };
@@ -259,12 +259,50 @@ public partial class VirtualScene : ComponentBase, IAsyncDisposable
 
         if (!result.Canceled)
         {
-            var files = (List<IBrowserFile>)result.Data;
+            var files = (List<PhotoUploadDialog.UploadFileData>)result.Data;
             await UploadPhotos(files);
         }
     }
 
-    private async Task UploadPhotos(List<IBrowserFile> files)
+    private async Task ShowModelUploadDialog()
+    {
+        var dialog = await DialogService.ShowAsync<ModelUploadDialog>("上传GLB模型");
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var data = (ModelUploadDialog.UploadModelData)result.Data;
+            await UploadModel(data);
+        }
+    }
+
+    private async Task UploadModel(ModelUploadDialog.UploadModelData modelData)
+    {
+        if (selectedScene == null) return;
+
+        try
+        {
+            var sceneDir = Path.Combine("./data/virtual-hometown", selectedScene.Id.ToString());
+            Directory.CreateDirectory(sceneDir);
+
+            var modelPath = Path.Combine(sceneDir, "model.glb");
+            await File.WriteAllBytesAsync(modelPath, modelData.Data);
+
+            selectedScene.ModelPath = modelPath;
+            selectedScene.ReconstructionStatus = "completed";
+            selectedScene.ReconstructedAt = DateTime.UtcNow;
+            await SceneSvc.UpdateAsync(selectedScene);
+
+            Snackbar.Add("模型上传成功!", Severity.Success);
+            await LoadScenes();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"模型上传失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UploadPhotos(List<PhotoUploadDialog.UploadFileData> files)
     {
         if (selectedScene == null || files.Count == 0) return;
 
@@ -272,9 +310,9 @@ public partial class VirtualScene : ComponentBase, IAsyncDisposable
         {
             foreach (var file in files)
             {
-                using (var stream = file.OpenReadStream())
+                using (var stream = new MemoryStream(file.Data))
                 {
-                    await ReconstructionSvc.UploadPhotoFromStreamAsync(selectedScene.Id, stream, file.Name);
+                    await ReconstructionSvc.UploadPhotoFromStreamAsync(selectedScene.Id, stream, file.FileName);
                 }
             }
 
@@ -370,7 +408,8 @@ public partial class VirtualScene : ComponentBase, IAsyncDisposable
         if (_isDisposed || selectedScene == null) return;
 
         var status = await ReconstructionSvc.GetReconstructionStatusAsync(selectedScene.Id);
-        if (status.IsProcessing)
+        
+        if (status.IsProcessing || !string.IsNullOrEmpty(status.StatusMessage))
         {
             reconstructionProgress = status.Progress;
             reconstructionStep = status.CurrentStep ?? string.Empty;
